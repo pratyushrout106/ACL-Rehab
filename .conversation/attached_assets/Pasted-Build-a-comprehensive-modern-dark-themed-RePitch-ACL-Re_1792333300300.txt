@@ -1,0 +1,41 @@
+Build a comprehensive, modern, dark-themed "RePitch" ACL Rehabilitation Interactive Web Portal featuring real-time AI posture guidance, guided single-repetition exercise sets, automated clinician reporting, and video telemetry playback.
+
+### 🎨 Tech Stack & Styling Guidelines
+- Tech: Single-page application using HTML5, Tailwind CSS (via CDN), Lucide/FontAwesome icons, and Vanilla JavaScript.
+- Design Aesthetic: High-end athletic-clinical dark mode (Background: `#0A0A0C` / `#0F172A`, Cards: `#1E293B` / `#18181B` with subtle borders `#334155`, Neon Cyan accent: `#00F2FE`, Emerald: `#10B981`, Amber Warning: `#FFB300`, Rose/Red Alert: `#EF4444`).
+- Typography: Inter / Urbanist for a clean, futuristic, medical-grade UI.
+- Dual-View Navigation: A persistent top navigation bar allowing 1-click toggling between:
+  1. 🏃 "Patient / Player View"
+  2. 🩺 "Physiotherapist / Clinician View"
+
+---
+
+### 1. 🏃 PATIENT VIEW (Recovery Portal)
+
+#### A. Header & Daily Recovery Readiness
+- Patient greeting with streak counter (e.g., "Day 12 • 4-Day Streak 🔥") and earned trophy points (e.g., "350 🏆").
+- Recovery Checklist / Daily Check-in card with interactive sliders for Pain (1-10), Knee Swelling level (Mild/Moderate/Severe), and Sleep Quality.
+- Roo Mascot Companion: An encouraging kangaroo rehab mascot ("Roo") displaying contextual quips and speech bubbles (e.g., "Let's lock that knee straight today! Zero extension lag!").
+
+#### B. 4-Phase Recovery Roadmap
+- Visual milestone subway-style timeline:
+  - Phase 1: Acute Recovery & Extension Lock (Active / Current)
+  - Phase 2: Neuromuscular Control & Hypertrophy (Locked)
+  - Phase 3: Dynamic Loading & Agility (Locked)
+  - Phase 4: Return to Sport & Cutting (Locked)
+
+#### C. Phase 1 Exercise Protocol (1 Set × 1 Rep Protocol)
+Every exercise in Phase 1 must follow a strict clinical protocol of **1 Set × 1 Repetition**:
+1. **Quad Sets with Isometric Lock**: Lie/sit with towel under ankle, contract quadriceps tightly for 5s hold. Joint target: 180° knee extension.
+2. **Straight Leg Raise (SLR)**: Lock knee in full extension, elevate leg to 45° without extension lag. Joint target: 135° hip angle.
+3. **Heel Slides**: Slowly slide heel towards glutes along a flat surface to achieve controlled bend. Joint target: 110° flexion.
+4. **Patellar Mobilizations**: Gentle manual glide of the patella (superior, inferior, medial, lateral). Duration: 60s.
+
+Each exercise card must display:
+- Exercise thumbnail / illustration, target joint angle, hold time.
+- Clinical warning badge (e.g., "Avoid quad lag", "Keep heel on towel").
+- "Start Guided Set" button and "Open AI Camera" button.
+
+#### D. Guided Exercise Modal & Pose Tracking
+When an exercise is clicked:
+1

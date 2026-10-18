@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "RePitch ACL Rehab Portal"
+description = "A dark, interactive ACL rehabilitation portal with separate patient and physiotherapist experiences, guided Phase 1 exercise sessions, posture camera guidance, clinician reports, and video telemetry review."
+version = "1.0.0"
+id = "artifacts/repitch-acl"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19105
+
+[services.development]
+run = "pnpm --filter @workspace/repitch-acl run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/repitch-acl", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/repitch-acl/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19105"
+BASE_PATH = "/"
