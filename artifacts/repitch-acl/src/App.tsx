@@ -32,6 +32,8 @@ import {
   User,
   Users,
   Video, 
+  Volume2,
+  VolumeX,
   X,
   Zap
 } from 'lucide-react';
@@ -46,7 +48,7 @@ type VideoMeta = { at: string; exercise: string; duration: number; telemetry?: T
 const STORAGE = { 
   patients: 'repitch.patients.v2', 
   selectedPatientId: 'repitch.selectedPatientId.v2',
-  role: 'repitch.role.v2' 
+  role: 'repitch.role.v2'
 };
 
 const readJson = <T,>(key: string, fallback: T): T => { 
@@ -69,23 +71,224 @@ const angleAt = (a: NormalizedLandmark, b: NormalizedLandmark, c: NormalizedLand
   return Math.round(Math.acos(Math.max(-1, Math.min(1, (ab.x * cb.x + ab.y * cb.y) / denominator))) * (180 / Math.PI));
 };
 
-function Roo() {
-  return (
-    <svg viewBox="0 0 160 150" aria-label="Roo the kangaroo companion" role="img">
-      <ellipse cx="85" cy="139" rx="51" ry="7" fill="currentColor" opacity="0.18"/>
-      <path d="M53 105c-9 9-24 15-39 13-5-1-8-5-5-8 3-4 13-6 22-12l19-17" fill="#10b981" stroke="#34d399" strokeWidth="2.5" strokeLinecap="round"/>
-      <path d="M69 82c-13 5-22 17-21 34 1 14 16 20 42 20 22 0 39-10 39-26 0-15-15-29-31-32z" fill="#059669" stroke="#6ee7b7" strokeWidth="2.5"/>
-      <path d="M66 83c-3-14-7-39-2-57 2-8 8-9 12-2l13 36m10 20c6-14 11-36 11-56 0-10 7-12 12-4 9 14 8 43 1 62" fill="#047857" stroke="#6ee7b7" strokeWidth="2.5" strokeLinecap="round"/>
-      <path d="M70 40c2-13 8-22 12-19 5 4 2 24 1 35m28-1c3-13 7-23 11-20 5 4 2 21 0 31" fill="#065f46"/>
-      <ellipse cx="84" cy="69" rx="25" ry="23" fill="#10b981" stroke="#a7f3d0" strokeWidth="2.5"/>
-      <ellipse cx="105" cy="78" rx="17" ry="13" fill="#6ee7b7"/>
-      <circle cx="91" cy="66" r="2.8" fill="#064e3b"/>
-      <ellipse cx="117" cy="77" rx="4" ry="3" fill="#064e3b"/>
-      <path d="M68 99c18-10 36-7 46 0l-2 26c-12 10-30 11-44 0z" fill="#d1fae5" opacity="0.9"/>
-      <path d="M78 108c12-5 23-5 32 0" fill="none" stroke="#059669" strokeWidth="2"/>
-      <path d="M59 128c-9 8-19 9-25 7m91-2c11 8 20 8 27 4" fill="none" stroke="#6ee7b7" strokeWidth="4" strokeLinecap="round"/>
-    </svg>
+// Roo Companion Lines: Warm, encouraging female recovery companion
+const ROO_LINES = {
+  greetings: [
+    "Hi there! I'm Roo. You're doing wonderful with your recovery today. Let's keep that knee strong and steady!",
+    "You can do anything you set your mind to! I'm right here cheering you on every step of the way.",
+    "Every steady hold makes a difference. You're doing great, keep going!"
+  ],
+  start: "You can do this! Lock that knee straight and hold it steady. I'm right here with you.",
+  halfway: "Halfway through! Looking very strong, keep holding that form steady.",
+  nearEnd: "Almost there! Three, two, one... hold it right there! Excellent work!",
+  completed: "Set complete! You did such a fantastic job! I am so proud of your dedication and progress today! ⭐",
+  retry: "Would you like to try that set again? Come on, we can do it together! 💚",
+  retryConfirm: "Wonderful! Let's give it another shot! You've got this!"
+};
+
+// Roo Sound & Voice Engine
+class RooSoundEngine {
+  private ctx: AudioContext | null = null;
+
+  private getContext(): AudioContext | null {
+    if (typeof window === 'undefined') return null;
+    if (!this.ctx) {
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (AudioCtx) this.ctx = new AudioCtx();
+    }
+    if (this.ctx && this.ctx.state === 'suspended') {
+      void this.ctx.resume();
+    }
+    return this.ctx;
+  }
+
+  // Soft subtle warm acoustic cue (D5, A5)
+  playWarmCue() {
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const notes = [587.33, 880.0];
+    notes.forEach((freq, idx) => {
+      const t = now + idx * 0.08;
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, t);
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.001, t);
+      gain.gain.linearRampToValueAtTime(0.06, t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(t);
+      osc.stop(t + 0.24);
+    });
+  }
+
+  // Joyful celebratory victory fanfare on set completion
+  playVictoryFanfare() {
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const notes = [523.25, 659.25, 783.99, 1046.50, 1318.51]; // C5, E5, G5, C6, E6
+    notes.forEach((freq, idx) => {
+      const t = now + idx * 0.09;
+      const osc = ctx.createOscillator();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, t);
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.001, t);
+      gain.gain.linearRampToValueAtTime(0.20, t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(t);
+      osc.stop(t + 0.38);
+    });
+  }
+}
+
+const rooAudio = new RooSoundEngine();
+
+// Cache voices asynchronously so speech synthesis is reliable across browsers
+let cachedVoices: SpeechSynthesisVoice[] = [];
+function updateVoicesCache() {
+  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+    cachedVoices = window.speechSynthesis.getVoices();
+  }
+}
+if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+  updateVoicesCache();
+  window.speechSynthesis.onvoiceschanged = updateVoicesCache;
+}
+
+// Selects a natural human female voice, explicitly rejecting novelty/cartoon/chipmunk voices
+function findFemaleHumanVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
+  if (!voices || voices.length === 0) return null;
+
+  // Novelty, cartoon, chipmunk, animal, sound effects, or male voice names to strictly exclude
+  const excludedPattern = /sandy|flo|shelley|eddy|reed|rocko|grandma|grandpa|junior|jester|bad news|bahh|bells|boing|bubbles|cellos|wobble|organ|superstar|ralph|trinoids|whisper|zarvox|albert|fred|daniel|alex|david|bruce|tom|george|male/i;
+
+  const validVoices = voices.filter(v => v.lang.startsWith('en') && !excludedPattern.test(v.name));
+
+  // 1. Premier natural human female voices (Samantha is macOS gold standard, Google US English in Chrome, Microsoft Aria/Jenny/Zira on Windows)
+  const topTier = validVoices.find(v =>
+    /^(samantha|victoria|karen|moira|tessa|tara|kathy|fiona)$/i.test(v.name.trim()) ||
+    /^(samantha|victoria)\s/i.test(v.name.trim()) ||
+    /aria|jenny|zira/i.test(v.name) ||
+    /google.*female|google us english/i.test(v.name)
   );
+  if (topTier) return topTier;
+
+  // 2. Any voice explicitly containing female or woman
+  const taggedFemale = validVoices.find(v => /female|woman/i.test(v.name));
+  if (taggedFemale) return taggedFemale;
+
+  // 3. Fallback to any Samantha, Victoria or remaining valid natural voice
+  const namedFallback = validVoices.find(v => /samantha|victoria|karen/i.test(v.name));
+  if (namedFallback) return namedFallback;
+
+  return validVoices[0] || voices.find(v => v.lang.startsWith('en')) || voices[0] || null;
+}
+
+// Roo Voice Synthesizer: Natural Human Female Voice (pitch: 1.0, rate: 0.98, volume: 1.0)
+function speakRoo(text: string, enabled: boolean = true, isVictory: boolean = false) {
+  if (!enabled) return;
+
+  if (isVictory) {
+    rooAudio.playVictoryFanfare();
+  }
+
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+  try {
+    window.speechSynthesis.cancel();
+    if (window.speechSynthesis.paused) {
+      window.speechSynthesis.resume();
+    }
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    // Natural human female voice settings:
+    // pitch 1.0 preserves the authentic human female timbre without any high-pitched Mickey Mouse / cartoon distortion
+    utterance.pitch = 1.0;  // Natural human female pitch
+    utterance.rate = 0.98;  // Natural, clear, articulate human conversational cadence
+    utterance.volume = 1.0; // 100% volume for clear audibility
+
+    const voices = cachedVoices.length > 0 ? cachedVoices : window.speechSynthesis.getVoices();
+    const femaleVoice = findFemaleHumanVoice(voices);
+    if (femaleVoice) {
+      utterance.voice = femaleVoice;
+    }
+
+    const delay = isVictory ? 300 : 30;
+    setTimeout(() => {
+      try {
+        if (window.speechSynthesis.paused) {
+          window.speechSynthesis.resume();
+        }
+        window.speechSynthesis.speak(utterance);
+      } catch (e) {
+        console.warn('Speech error:', e);
+      }
+    }, delay);
+  } catch (err) {
+    console.warn('Speech synthesis unavailable:', err);
+  }
+}
+
+interface RooMascotProps {
+  mood?: 'idle' | 'cheering' | 'wondering';
+  size?: 'sm' | 'md' | 'lg';
+  speech?: string;
+  showSparkles?: boolean;
+  onClick?: () => void;
+  className?: string;
+}
+
+function RooMascot({
+  mood = 'idle',
+  size = 'md',
+  speech,
+  showSparkles = false,
+  onClick,
+  className = ''
+}: RooMascotProps) {
+  return (
+    <div 
+      className={`roo-mascot-wrapper size-${size} mood-${mood} ${className}`}
+      onClick={onClick}
+      style={{ cursor: onClick ? 'pointer' : 'default' }}
+      title={onClick ? "Click to hear Roo!" : undefined}
+    >
+      {speech && (
+        <div className="roo-speech-bubble" role="status">
+          <span>{speech}</span>
+          <div className="speech-tail" />
+        </div>
+      )}
+      <div className="roo-mascot-figure">
+        {(showSparkles || mood === 'cheering') && (
+          <div className="roo-sparkles" aria-hidden="true">
+            <span className="sparkle s1">✨</span>
+            <span className="sparkle s2">⭐</span>
+            <span className="sparkle s3">🌟</span>
+          </div>
+        )}
+        <img
+          src="/roo.png"
+          alt="Roo the cheerful kangaroo recovery mascot"
+          className="roo-mascot-img"
+          draggable={false}
+        />
+      </div>
+    </div>
+  );
+}
+
+function Roo() {
+  return <RooMascot size="md" mood="idle" />;
 }
 
 function Art({ kind }: { kind?: Exercise['icon'] }) {
@@ -137,6 +340,12 @@ function App() {
   const [videoMeta, setVideoMeta] = useState<VideoMeta | null>(null);
   const [videoPlaybackTime, setVideoPlaybackTime] = useState(0);
 
+  // Mascot Roo coaching state
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [guidedSpeech, setGuidedSpeech] = useState<string>(ROO_LINES.greetings[0]);
+  const [guidedMood, setGuidedMood] = useState<'idle' | 'cheering' | 'wondering'>('idle');
+  const lastCheerSecRef = useRef<number>(-1);
+
   // Physio modal to edit/create exercise
   const [exerciseModal, setExerciseModal] = useState<{ open: boolean; mode: 'add' | 'edit'; targetEx: Exercise | null }>({ open: false, mode: 'add', targetEx: null });
   const [formName, setFormName] = useState('');
@@ -178,6 +387,60 @@ function App() {
     const timer = window.setInterval(() => setSeconds((s) => running ? modal === 'guided' ? Math.min(s + 1, exercise.seconds) : s + 1 : s), 1000);
     return () => window.clearInterval(timer);
   }, [running, exercise.seconds, modal]);
+
+  // Roo cheer and voice coach lifecycle during guided exercise
+  useEffect(() => {
+    if (modal !== 'guided' || step !== exercise.cues.length - 1) {
+      lastCheerSecRef.current = -1;
+      return;
+    }
+
+    // Condition 1: Set completed properly
+    if (seconds >= exercise.seconds && exercise.seconds > 0) {
+      if (lastCheerSecRef.current !== 9999) {
+        lastCheerSecRef.current = 9999;
+        setGuidedMood('cheering');
+        const cheerText = ROO_LINES.completed;
+        setGuidedSpeech(cheerText);
+        speakRoo(cheerText, soundEnabled, true);
+      }
+      return;
+    }
+
+    // Condition 2: Ongoing set (running)
+    if (running && seconds < exercise.seconds) {
+      setGuidedMood('cheering');
+      
+      if (seconds === 1 && lastCheerSecRef.current !== 1) {
+        lastCheerSecRef.current = 1;
+        const msg = ROO_LINES.start;
+        setGuidedSpeech(msg);
+        speakRoo(msg, soundEnabled);
+      } else if (seconds === Math.floor(exercise.seconds / 2) && seconds > 1 && lastCheerSecRef.current !== seconds) {
+        lastCheerSecRef.current = seconds;
+        const msg = ROO_LINES.halfway;
+        setGuidedSpeech(msg);
+        speakRoo(msg, soundEnabled);
+      } else if (seconds === Math.max(2, exercise.seconds - 2) && exercise.seconds > 4 && lastCheerSecRef.current !== seconds) {
+        lastCheerSecRef.current = seconds;
+        const msg = ROO_LINES.nearEnd;
+        setGuidedSpeech(msg);
+        speakRoo(msg, soundEnabled);
+      }
+      return;
+    }
+
+    // Condition 3: Else (stopped early / paused before reaching target seconds)
+    if (!running && seconds > 0 && seconds < exercise.seconds) {
+      if (lastCheerSecRef.current !== -888) {
+        lastCheerSecRef.current = -888;
+        setGuidedMood('wondering');
+        const retryText = ROO_LINES.retry;
+        setGuidedSpeech(retryText);
+        speakRoo(retryText, soundEnabled);
+      }
+    }
+  }, [modal, step, running, seconds, exercise.seconds, exercise.cues.length, soundEnabled]);
 
   useEffect(() => {
     if (videoRef.current && stream) videoRef.current.srcObject = stream;
@@ -346,7 +609,16 @@ function App() {
     window.setTimeout(() => setSaved(false), 2500);
   };
 
-  const launchGuided = (item: Exercise) => { setExercise(item); setStep(0); setSeconds(0); setRunning(false); setModal('guided'); };
+  const launchGuided = (item: Exercise) => { 
+    setExercise(item); 
+    setStep(0); 
+    setSeconds(0); 
+    setRunning(false); 
+    setModal('guided'); 
+    lastCheerSecRef.current = -1;
+    setGuidedMood('idle');
+    setGuidedSpeech(ROO_LINES.start);
+  };
   
   const completeSession = () => {
     const newSession: Session = { 
@@ -386,7 +658,15 @@ function App() {
     cameraRequestRef.current += 1;
     if (recorderRef.current?.state === 'recording') recorderRef.current.stop();
     recordingRef.current = false;
-    stream?.getTracks().forEach((track) => track.stop()); setStream(null); setRunning(false); setRecording(false); setModal(null); setCameraError('');
+    stream?.getTracks().forEach((track) => track.stop()); 
+    setStream(null); 
+    setRunning(false); 
+    setRecording(false); 
+    setModal(null); 
+    setCameraError('');
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
   };
 
   const recordVideo = () => {
@@ -677,15 +957,116 @@ function App() {
                   </div>
                   {step === exercise.cues.length - 1 ? (
                     <>
+                      {/* Roo Cheering Mascot Stage */}
+                      <div className="roo-cheer-stage">
+                        <RooMascot
+                          size="md"
+                          mood={guidedMood}
+                          speech={guidedSpeech}
+                          showSparkles={guidedMood === 'cheering'}
+                          onClick={() => {
+                            if (seconds >= exercise.seconds) {
+                              speakRoo(ROO_LINES.completed, soundEnabled, true);
+                            } else if (running) {
+                              speakRoo(ROO_LINES.halfway, soundEnabled);
+                            } else if (seconds > 0) {
+                              speakRoo(ROO_LINES.retry, soundEnabled);
+                            } else {
+                              speakRoo(ROO_LINES.greetings[0], soundEnabled);
+                            }
+                          }}
+                        />
+
+                        <button
+                          type="button"
+                          className="roo-sound-toggle-btn"
+                          style={{ marginTop: 8 }}
+                          onClick={() => setSoundEnabled((prev) => !prev)}
+                          title="Toggle Roo's voice"
+                        >
+                          {soundEnabled ? <Volume2 size={13} style={{ color: 'var(--accent-emerald)' }} /> : <VolumeX size={13} />}
+                          <span>Roo voice: {soundEnabled ? 'ON' : 'MUTED'}</span>
+                        </button>
+                      </div>
+
                       <div className="timer-display">{formattedTimer}</div>
                       <p className="muted small" style={{ textAlign: 'center' }}>
                         Hold comfortably for {exercise.seconds} seconds. Pause if anything feels wrong.
                       </p>
-                      <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginTop: 22 }}>
-                        <button className="btn btn-quiet" disabled={seconds >= exercise.seconds} onClick={() => setRunning(!running)}>
-                          <Clock3 size={15}/>{running ? 'Pause timer' : 'Start timer'}
+
+                      {/* If stopped early / paused before reaching target time, show retry question card */}
+                      {!running && seconds > 0 && seconds < exercise.seconds && (
+                        <div style={{
+                          margin: '14px 0 6px',
+                          padding: '10px 14px',
+                          background: 'rgba(239, 68, 68, 0.08)',
+                          border: '1px dashed rgba(239, 68, 68, 0.35)',
+                          borderRadius: 14,
+                          textAlign: 'center',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: 6
+                        }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
+                            Set paused at {seconds}s of {exercise.seconds}s
+                          </span>
+                          <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                            Roo asks: <em>"Do you want to try again?"</em>
+                          </span>
+                        </div>
+                      )}
+
+                      <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginTop: 18, flexWrap: 'wrap' }}>
+                        {/* Try Again Button: available when set was started or paused */}
+                        {seconds > 0 && (
+                          <button
+                            type="button"
+                            className="btn btn-quiet"
+                            onClick={() => {
+                              setRunning(false);
+                              setSeconds(0);
+                              lastCheerSecRef.current = -1;
+                              setGuidedMood('cheering');
+                              const retryText = ROO_LINES.retryConfirm;
+                              setGuidedSpeech(retryText);
+                              speakRoo(retryText, soundEnabled);
+                              setTimeout(() => setGuidedMood('idle'), 2500);
+                            }}
+                          >
+                            <RotateCcw size={15}/> Try again
+                          </button>
+                        )}
+
+                        <button
+                          className="btn btn-quiet"
+                          disabled={seconds >= exercise.seconds}
+                          onClick={() => {
+                            const willRun = !running;
+                            setRunning(willRun);
+                            if (willRun && seconds === 0) {
+                              setGuidedMood('cheering');
+                              const startMsg = ROO_LINES.start;
+                              setGuidedSpeech(startMsg);
+                              speakRoo(startMsg, soundEnabled);
+                            }
+                          }}
+                        >
+                          <Clock3 size={15}/>{running ? 'Pause timer' : seconds > 0 ? 'Resume timer' : 'Start timer'}
                         </button>
-                        <button className="btn btn-primary" disabled={seconds < exercise.seconds} onClick={() => { setStep((value) => value + 1); setRunning(false); setSeconds(0); }}>
+
+                        <button
+                          className="btn btn-primary"
+                          disabled={seconds < exercise.seconds}
+                          onClick={() => {
+                            setStep((value) => value + 1);
+                            setRunning(false);
+                            setSeconds(0);
+                            setGuidedMood('cheering');
+                            const finishMsg = ROO_LINES.completed;
+                            speakRoo(finishMsg, soundEnabled, true);
+                          }}
+                        >
                           Finish set<ChevronRight size={15}/>
                         </button>
                       </div>
@@ -702,15 +1083,38 @@ function App() {
                   </p>
                 </>
               ) : (
-                <div className="empty" style={{ border: 0, padding: '36px 20px' }}>
-                  <CheckCircle2 size={52} color="var(--accent-emerald)" style={{ margin: '0 auto 14px' }}/>
-                  <h3 style={{ fontSize: 22, margin: '0 0 6px' }}>Set Complete!</h3>
-                  <p className="muted" style={{ margin: '0 0 20px' }}>
+                <div className="empty" style={{ border: 0, padding: '28px 20px', textAlign: 'center' }}>
+                  <RooMascot
+                    size="lg"
+                    mood="cheering"
+                    speech={ROO_LINES.completed}
+                    showSparkles={true}
+                    onClick={() => speakRoo(ROO_LINES.completed, soundEnabled, true)}
+                  />
+                  <h3 style={{ fontSize: 24, margin: '14px 0 6px', fontWeight: 800 }}>Set Complete!</h3>
+                  <p className="muted" style={{ margin: '0 0 20px', maxWidth: 360, marginLeft: 'auto', marginRight: 'auto' }}>
                     Great work. Your rep has been logged to your recovery progress.
                   </p>
-                  <button className="btn btn-primary" onClick={completeSession}>
-                    <Check size={16}/> Save completion
-                  </button>
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: 12 }}>
+                    <button
+                      className="btn btn-quiet"
+                      onClick={() => {
+                        setStep(exercise.cues.length - 1);
+                        setSeconds(0);
+                        setRunning(false);
+                        lastCheerSecRef.current = -1;
+                        setGuidedMood('idle');
+                        const startMsg = ROO_LINES.start;
+                        setGuidedSpeech(startMsg);
+                        speakRoo(startMsg, soundEnabled);
+                      }}
+                    >
+                      <RotateCcw size={15}/> Do another set
+                    </button>
+                    <button className="btn btn-primary" onClick={completeSession}>
+                      <Check size={16}/> Save completion
+                    </button>
+                  </div>
                 </div>
               )}
             </section>
@@ -927,6 +1331,8 @@ function PatientView(props: {
   videoUrl: string; videoMeta: VideoMeta | null;
 }) {
   const { patient, pain, setPain, swelling, setSwelling, sleep, setSleep, saveCheckin, saved, launchGuided, startCamera, videoUrl, videoMeta } = props;
+  const [rooCompanionSpeech, setRooCompanionSpeech] = useState<string>('');
+  const [rooCompanionMood, setRooCompanionMood] = useState<'idle' | 'cheering' | 'wondering'>('idle');
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
@@ -1185,9 +1591,40 @@ function PatientView(props: {
                 <Sparkles size={13}/>
                 <span>Every steady repetition counts</span>
               </div>
+              <div style={{ marginTop: 14 }}>
+                <button
+                  type="button"
+                  className="roo-sound-toggle-btn"
+                  onClick={() => {
+                    const quotes = ROO_LINES.greetings;
+                    const quote = quotes[Math.floor(Math.random() * quotes.length)];
+                    setRooCompanionSpeech(quote);
+                    speakRoo(quote, true);
+                    setRooCompanionMood('cheering');
+                    setTimeout(() => setRooCompanionMood('idle'), 3500);
+                  }}
+                  title="Hear Roo's voice"
+                >
+                  <Volume2 size={13} style={{ color: 'var(--accent-emerald)' }} />
+                  <span>Hear Roo cheer!</span>
+                </button>
+              </div>
             </div>
-            <div className="roo-art">
-              <Roo/>
+            <div className="roo-art" style={{ width: 140, height: 140, overflow: 'visible' }}>
+              <RooMascot
+                size="md"
+                mood={rooCompanionMood}
+                speech={rooCompanionSpeech}
+                showSparkles={rooCompanionMood === 'cheering'}
+                onClick={() => {
+                  const quotes = ROO_LINES.greetings;
+                  const quote = quotes[Math.floor(Math.random() * quotes.length)];
+                  setRooCompanionSpeech(quote);
+                  speakRoo(quote, true);
+                  setRooCompanionMood('cheering');
+                  setTimeout(() => setRooCompanionMood('idle'), 3500);
+                }}
+              />
             </div>
           </section>
 

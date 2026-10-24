@@ -964,14 +964,12 @@ button:disabled {
   position: absolute;
   right: 12px;
   bottom: 0px;
-  width: 128px;
-  height: 128px;
+  width: 140px;
+  height: 140px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
   filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.15));
-}
-
-.roo-art svg {
-  width: 100%;
-  height: 100%;
 }
 
 .roo-card h2 {
@@ -995,6 +993,180 @@ button:disabled {
   display: inline-flex;
   align-items: center;
   gap: 5px;
+}
+
+/* ==========================================================================
+   ROO MASCOT COMPONENT & ANIMATIONS
+   ========================================================================== */
+.roo-mascot-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  user-select: none;
+}
+
+.roo-mascot-figure {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.roo-mascot-img {
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 18px rgba(16, 185, 129, 0.25));
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Mascot Sizes */
+.size-sm .roo-mascot-img {
+  max-height: 75px;
+}
+
+.size-md .roo-mascot-img {
+  max-height: 120px;
+}
+
+.size-lg .roo-mascot-img {
+  max-height: 165px;
+}
+
+/* Mascot Moods & Animations */
+.mood-idle .roo-mascot-img {
+  animation: rooBob 3s ease-in-out infinite;
+}
+
+.mood-cheering .roo-mascot-img {
+  animation: rooHop 0.6s cubic-bezier(0.36, 0.07, 0.19, 0.97) infinite;
+}
+
+.mood-wondering .roo-mascot-img {
+  animation: rooTilt 2s ease-in-out infinite;
+}
+
+@keyframes rooBob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+@keyframes rooHop {
+  0%, 100% { transform: translateY(0) scale(1, 1); }
+  35% { transform: translateY(-14px) scale(0.97, 1.05); }
+  70% { transform: translateY(0) scale(1.04, 0.96); }
+}
+
+@keyframes rooTilt {
+  0%, 100% { transform: rotate(0deg) translateY(0); }
+  50% { transform: rotate(-6deg) translateY(-3px); }
+}
+
+/* Cheerful Sparkles */
+.roo-sparkles {
+  position: absolute;
+  inset: -8px;
+  pointer-events: none;
+}
+
+.roo-sparkles .sparkle {
+  position: absolute;
+  font-size: 18px;
+  animation: sparkleSpin 1.4s ease-in-out infinite;
+}
+
+.roo-sparkles .s1 { top: -4px; left: 6%; animation-delay: 0s; }
+.roo-sparkles .s2 { top: 10%; right: 6%; animation-delay: 0.3s; }
+.roo-sparkles .s3 { bottom: 20%; left: -2%; animation-delay: 0.6s; }
+
+@keyframes sparkleSpin {
+  0% { transform: scale(0.6) rotate(0deg); opacity: 0.4; }
+  50% { transform: scale(1.2) rotate(18deg); opacity: 1; }
+  100% { transform: scale(0.6) rotate(36deg); opacity: 0.4; }
+}
+
+/* Roo Speech Bubble */
+.roo-speech-bubble {
+  position: relative;
+  background: #ffffff;
+  color: #065f46;
+  border: 2px solid #10b981;
+  border-radius: 18px;
+  padding: 8px 14px;
+  font-weight: 700;
+  font-size: 13.5px;
+  line-height: 1.35;
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.22);
+  margin-bottom: 10px;
+  text-align: center;
+  max-width: 280px;
+  animation: speechPop 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 2;
+}
+
+.dark .roo-speech-bubble {
+  background: #064e3b;
+  color: #a7f3d0;
+  border-color: #34d399;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
+}
+
+.speech-tail {
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-top: 8px solid #10b981;
+}
+
+.dark .speech-tail {
+  border-top-color: #34d399;
+}
+
+@keyframes speechPop {
+  0% { transform: scale(0.88) translateY(4px); opacity: 0; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+/* Sound Toggle Button */
+.roo-sound-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-light);
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+  margin-top: 8px;
+  transition: all 0.16s ease;
+}
+
+.roo-sound-toggle-btn:hover {
+  background: var(--bg-card-hover);
+  color: var(--accent-emerald);
+  border-color: var(--accent-emerald);
+}
+
+/* Guided Set Cheer Stage */
+.roo-cheer-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 14px 0 10px;
+  padding: 16px 20px;
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-light);
+  border-radius: 18px;
 }
 
 /* Notice box */
