@@ -14,6 +14,7 @@ import {
   Download, 
   Dumbbell, 
   Edit3,
+  ExternalLink,
   FileText, 
   Flame, 
   HeartPulse, 
@@ -59,6 +60,17 @@ const readJson = <T,>(key: string, fallback: T): T => {
   } catch { 
     return fallback; 
   } 
+};
+
+const loadInitialPatients = (): Patient[] => {
+  const stored = readJson<Patient[]>(STORAGE.patients, []);
+  if (!stored || stored.length === 0) return INITIAL_PATIENTS;
+  const storedIds = new Set(stored.map((p) => p.id));
+  const missing = INITIAL_PATIENTS.filter((p) => !storedIds.has(p.id));
+  if (missing.length > 0) {
+    return [...stored, ...missing];
+  }
+  return stored;
 };
 
 const dayStamp = () => new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
@@ -312,8 +324,24 @@ function Art({ kind }: { kind?: Exercise['icon'] }) {
 function App() {
   const { theme, setTheme } = useTheme();
   const [role, setRole] = useState<Role>(() => readJson(STORAGE.role, 'patient' as Role));
-  const [patients, setPatients] = useState<Patient[]>(() => readJson(STORAGE.patients, INITIAL_PATIENTS));
-  const [selectedPatientId, setSelectedPatientId] = useState<string>(() => readJson(STORAGE.selectedPatientId, INITIAL_PATIENTS[0].id));
+  const [patients, setPatients] = useState<Patient[]>(() => loadInitialPatients());
+  const [selectedPatientId, setSelectedPatientId] = useState<string>(() => {
+    const list = loadInitialPatients();
+    const stored = readJson<string>(STORAGE.selectedPatientId, list[0].id);
+    return list.some((p) => p.id === stored) ? stored : list[0].id;
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE.patients, JSON.stringify(patients));
+    } catch {}
+  }, [patients]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE.selectedPatientId, JSON.stringify(selectedPatientId));
+    } catch {}
+  }, [selectedPatientId]);
   
   // Patient tab switcher: 'routine' vs 'masterplan'
   const [patientTab, setPatientTab] = useState<'routine' | 'masterplan'>('routine');
@@ -369,6 +397,18 @@ function App() {
   const [formSeconds, setFormSeconds] = useState(5);
   const [formCategory, setFormCategory] = useState('Activation');
   const [formCues, setFormCues] = useState('');
+
+  // Patient Profile & Add Patient Modals
+  const [profileModal, setProfileModal] = useState<{ open: boolean; patient: Patient | null }>({ open: false, patient: null });
+  const [addPatientModal, setAddPatientModal] = useState(false);
+  const [newPatientName, setNewPatientName] = useState('');
+  const [newPatientSport, setNewPatientSport] = useState('');
+  const [newPatientAge, setNewPatientAge] = useState(22);
+  const [newPatientGraft, setNewPatientGraft] = useState('Bone-Patellar Tendon-Bone (BPTB)');
+  const [newPatientSurgeryDate, setNewPatientSurgeryDate] = useState(dayStamp());
+  const [newPatientLeg, setNewPatientLeg] = useState<'left' | 'right'>('right');
+  const [newPatientPhase, setNewPatientPhase] = useState<1 | 2 | 3 | 4>(1);
+  const [newPatientNotes, setNewPatientNotes] = useState('Patient initiated on postoperative rehab protocol.');
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const poseCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -1131,6 +1171,95 @@ function App() {
     setToast('Exercise removed from prescription.');
   };
 
+  const updatePatientPhase = (newPhase: 1 | 2 | 3 | 4) => {
+    const phaseDefaultEx = 
+      newPhase === 1 ? INITIAL_PATIENTS[0].prescribedExercises :
+      newPhase === 2 ? INITIAL_PATIENTS[1].prescribedExercises :
+      newPhase === 3 ? INITIAL_PATIENTS[2].prescribedExercises :
+      INITIAL_PATIENTS[3].prescribedExercises;
+
+    updateCurrentPatient((p) => ({
+      ...p,
+      currentPhase: newPhase,
+      prescribedExercises: phaseDefaultEx
+    }));
+    setToast(`Cleared ${patient.name} for Phase ${newPhase}! Loaded Phase ${newPhase} evidence protocol.`);
+  };
+
+  const handleCreatePatient = () => {
+    if (!newPatientName.trim()) {
+      setToast('Please enter athlete name.');
+      return;
+    }
+    const name = newPatientName.trim();
+    const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'PT';
+    const id = `pt-${Date.now()}`;
+    const phaseDefaultEx = 
+      newPatientPhase === 1 ? INITIAL_PATIENTS[0].prescribedExercises :
+      newPatientPhase === 2 ? INITIAL_PATIENTS[1].prescribedExercises :
+      newPatientPhase === 3 ? INITIAL_PATIENTS[2].prescribedExercises :
+      INITIAL_PATIENTS[3].prescribedExercises;
+
+    const newPt: Patient = {
+      id,
+      name,
+      avatar: initials,
+      sport: newPatientSport.trim() || 'Multi-sport Athlete',
+      age: Number(newPatientAge) || 22,
+      graft: newPatientGraft,
+      surgeryDate: newPatientSurgeryDate || dayStamp(),
+      affectedLeg: newPatientLeg,
+      legHighlightColor: newPatientLeg === 'left' ? '#10b981' : '#00f2fe',
+      currentPhase: newPatientPhase,
+      currentDay: 1,
+      totalDays: 240,
+      streakDays: 0,
+      adherenceRate: 100,
+      repitchPoints: 100,
+      clinicianNotes: newPatientNotes.trim() || 'Patient initiated on postoperative rehab protocol.',
+      checkins: [
+        { pain: 2, swelling: 'Mild', sleep: 'Good', date: `${dayStamp()} · Intake` }
+      ],
+      sessions: [],
+      prescribedExercises: phaseDefaultEx
+    };
+
+    setPatients((prev) => [...prev, newPt]);
+    setSelectedPatientId(newPt.id);
+    setAddPatientModal(false);
+    setNewPatientName('');
+    setNewPatientSport('');
+    setToast(`Registered ${newPt.name} to patient roster.`);
+  };
+
+  const handleDeletePatient = (patientIdToDelete: string) => {
+    if (patients.length <= 1) {
+      setToast('Cannot delete the only patient on your roster. At least 1 patient required.');
+      return;
+    }
+    const target = patients.find((p) => p.id === patientIdToDelete);
+    if (!target) return;
+    const confirmDelete = window.confirm(`Are you sure you want to delete patient record for "${target.name}"? This cannot be undone.`);
+    if (!confirmDelete) return;
+
+    const remaining = patients.filter((p) => p.id !== patientIdToDelete);
+    setPatients(remaining);
+    if (selectedPatientId === patientIdToDelete) {
+      setSelectedPatientId(remaining[0].id);
+    }
+    if (profileModal.open && profileModal.patient?.id === patientIdToDelete) {
+      setProfileModal({ open: false, patient: null });
+    }
+    setToast(`Deleted ${target.name} from clinical roster.`);
+  };
+
+  const switchToPatientPortal = (patientIdToSwitch: string) => {
+    setSelectedPatientId(patientIdToSwitch);
+    setRole('patient');
+    setProfileModal({ open: false, patient: null });
+    setToast(`Switched view to ${patients.find(p => p.id === patientIdToSwitch)?.name || 'athlete'}'s portal.`);
+  };
+
   const exportReport = () => {
     const reportLatest = patient.checkins[0];
     const reportFlags = patient.checkins.filter((item) => item.pain >= 5 || item.swelling === 'Moderate' || item.swelling === 'Severe');
@@ -1298,6 +1427,11 @@ function App() {
             deleteExercise={deleteExercise}
             openDemo={(ex) => setDemoModal({ open: true, ex })}
             updatePatientNotes={(notes) => updateCurrentPatient((p) => ({ ...p, clinicianNotes: notes }))}
+            updatePatientPhase={updatePatientPhase}
+            openAddPatient={() => setAddPatientModal(true)}
+            deletePatient={handleDeletePatient}
+            openProfile={(p) => setProfileModal({ open: true, patient: p })}
+            switchToPatientPortal={switchToPatientPortal}
           />
         )}
 
@@ -1973,6 +2107,330 @@ function App() {
         </div>
       )}
 
+      {/* Patient Profile Full Dossier Modal */}
+      {profileModal.open && profileModal.patient && (
+        <div className="modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setProfileModal({ open: false, patient: null }); }}>
+          <section className="modal" style={{ maxWidth: 840, width: '95%', maxHeight: '92dvh' }} role="dialog" aria-modal="true" aria-labelledby="profile-modal-title">
+            <div className="modal-head">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div className="patient-avatar" style={{ width: 48, height: 48, fontSize: 18 }}>
+                  {profileModal.patient.avatar}
+                </div>
+                <div>
+                  <div className="eyebrow" style={{ color: 'var(--accent-indigo)' }}>
+                    <User size={13}/> ATHLETE CLINICAL DOSSIER
+                  </div>
+                  <h2 id="profile-modal-title" style={{ fontSize: 24, margin: '2px 0 0' }}>{profileModal.patient.name}</h2>
+                  <div className="muted small">{profileModal.patient.sport} · Age {profileModal.patient.age}</div>
+                </div>
+              </div>
+              <button className="icon-button" onClick={() => setProfileModal({ open: false, patient: null })}>
+                <X size={18}/>
+              </button>
+            </div>
+
+            {/* Quick Stats Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, margin: '14px 0' }}>
+              <div className="panel" style={{ padding: '12px 16px', background: 'var(--bg-card-subtle)' }}>
+                <div className="muted small">Current Phase</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--accent-cyan)', marginTop: 2 }}>
+                  Phase {profileModal.patient.currentPhase}
+                </div>
+                <div className="muted small">Day {profileModal.patient.currentDay} of {profileModal.patient.totalDays}</div>
+              </div>
+              <div className="panel" style={{ padding: '12px 16px', background: 'var(--bg-card-subtle)' }}>
+                <div className="muted small">Surgical Graft</div>
+                <div style={{ fontSize: 14, fontWeight: 700, marginTop: 4 }}>
+                  {profileModal.patient.graft}
+                </div>
+                <div className="muted small">Surgery: {profileModal.patient.surgeryDate}</div>
+              </div>
+              <div className="panel" style={{ padding: '12px 16px', background: 'var(--bg-card-subtle)' }}>
+                <div className="muted small">Operative Leg</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: profileModal.patient.legHighlightColor || '#00f2fe', marginTop: 2 }}>
+                  {profileModal.patient.affectedLeg?.toUpperCase() || 'RIGHT'} LEG
+                </div>
+                <div className="muted small">Adherence: {profileModal.patient.adherenceRate}%</div>
+              </div>
+              <div className="panel" style={{ padding: '12px 16px', background: 'var(--bg-card-subtle)' }}>
+                <div className="muted small">RePitch Points</div>
+                <div style={{ fontSize: 18, fontWeight: 900, color: 'var(--accent-emerald)', marginTop: 2 }}>
+                  {profileModal.patient.repitchPoints} pts
+                </div>
+                <div className="muted small">{profileModal.patient.streakDays}-day streak</div>
+              </div>
+            </div>
+
+            {/* Phase Progression Stepper Inside Profile */}
+            <div className="panel" style={{ padding: '16px 20px', margin: '14px 0', background: 'rgba(0,0,0,0.2)' }}>
+              <div className="field-title" style={{ marginBottom: 10 }}>
+                <span>Rehabilitation Phase Clearance</span>
+                <span className="mono muted">Evidence-Based Milestones</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
+                {[
+                  { phase: 1, title: 'Phase 1: Protection', weeks: 'W1–4', goal: '180° Lock, Effusion < 2+' },
+                  { phase: 2, title: 'Phase 2: Neuromuscular', weeks: 'W5–12', goal: 'Full Flexion, Quad Strength' },
+                  { phase: 3, title: 'Phase 3: Hypertrophy & Run', weeks: 'W13–20', goal: 'Jogging, LSI > 80%' },
+                  { phase: 4, title: 'Phase 4: Agility & RTS', weeks: 'W21+', goal: 'Hop Tests > 90%, Reactive Cutting' }
+                ].map((item) => {
+                  const isCurrent = profileModal.patient!.currentPhase === item.phase;
+                  const isPast = profileModal.patient!.currentPhase > item.phase;
+                  return (
+                    <div 
+                      key={item.phase}
+                      onClick={() => {
+                        updatePatientPhase(item.phase as 1 | 2 | 3 | 4);
+                        setProfileModal(prev => prev.patient ? ({ ...prev, patient: { ...prev.patient, currentPhase: item.phase as 1 | 2 | 3 | 4 } }) : prev);
+                      }}
+                      style={{
+                        padding: '10px 12px',
+                        borderRadius: 12,
+                        background: isCurrent ? 'rgba(0, 242, 254, 0.12)' : isPast ? 'rgba(16, 185, 129, 0.1)' : 'var(--bg-card-subtle)',
+                        border: isCurrent ? '1.5px solid var(--accent-cyan)' : isPast ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid var(--border-light)',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
+                      }}
+                      title={`Click to set ${profileModal.patient!.name} to Phase ${item.phase}`}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: isCurrent ? 'var(--accent-cyan)' : isPast ? '#10b981' : '#94a3b8' }}>
+                          Phase {item.phase}
+                        </span>
+                        {isPast ? <CheckCircle2 size={13} color="#10b981"/> : isCurrent ? <Sparkles size={13} color="var(--accent-cyan)"/> : null}
+                      </div>
+                      <div style={{ fontSize: 11.5, fontWeight: 600, marginTop: 3 }}>{item.title.split(': ')[1]}</div>
+                      <div className="muted small" style={{ fontSize: 10, marginTop: 2 }}>{item.weeks} · {item.goal}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Check-ins & Session Logs */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14, margin: '14px 0' }}>
+              <div className="panel" style={{ padding: '14px 16px' }}>
+                <div className="field-title" style={{ marginBottom: 8 }}>
+                  <span>Recent Check-In Logs</span>
+                  <span className="mono muted">{profileModal.patient.checkins.length} recorded</span>
+                </div>
+                <div style={{ maxHeight: 180, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {profileModal.patient.checkins.map((c, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: 'var(--bg-card-subtle)', borderRadius: 8, fontSize: 12 }}>
+                      <span className="muted">{c.date}</span>
+                      <span>Pain: <strong>{c.pain}/10</strong> · {c.swelling}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="panel" style={{ padding: '14px 16px' }}>
+                <div className="field-title" style={{ marginBottom: 8 }}>
+                  <span>Completed Guided Sessions</span>
+                  <span className="mono muted">{profileModal.patient.sessions.length} logged</span>
+                </div>
+                <div style={{ maxHeight: 180, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {profileModal.patient.sessions.length ? (
+                    profileModal.patient.sessions.map((s, i) => (
+                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: 'var(--bg-card-subtle)', borderRadius: 8, fontSize: 12 }}>
+                        <span style={{ fontWeight: 600 }}>{s.exercise}</span>
+                        <span className="mono muted">{s.time}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="muted small" style={{ padding: 12, textAlign: 'center' }}>No sessions logged yet.</div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Clinician Notes */}
+            <div className="step-box" style={{ margin: '14px 0' }}>
+              <div className="eyebrow" style={{ color: 'var(--accent-indigo)' }}>PHYSIOTHERAPIST CLINICAL DIRECTIVE</div>
+              <p style={{ margin: '4px 0 0', fontSize: 13 }}>"{profileModal.patient.clinicianNotes}"</p>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="modal-actions" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 18, flexWrap: 'wrap', gap: 10 }}>
+              <button 
+                className="btn btn-danger" 
+                onClick={() => {
+                  handleDeletePatient(profileModal.patient!.id);
+                }}
+              >
+                <Trash2 size={14}/> Delete Patient
+              </button>
+
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button className="btn btn-quiet" onClick={() => setProfileModal({ open: false, patient: null })}>
+                  Close Dossier
+                </button>
+                <button 
+                  className="btn btn-primary" 
+                  onClick={() => {
+                    switchToPatientPortal(profileModal.patient!.id);
+                  }}
+                >
+                  <ExternalLink size={14}/> Open in Patient Portal
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {/* Register New Patient Modal */}
+      {addPatientModal && (
+        <div className="modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setAddPatientModal(false); }}>
+          <section className="modal" style={{ maxWidth: 640, width: '95%' }} role="dialog" aria-modal="true" aria-labelledby="add-pt-title">
+            <div className="modal-head">
+              <div>
+                <div className="eyebrow" style={{ color: 'var(--accent-emerald)' }}>
+                  <Users size={13}/> CLINICAL INTAKE TOOL
+                </div>
+                <h2 id="add-pt-title">Register New Athlete / Patient</h2>
+                <div className="muted small">Add a new patient profile into your active rehabilitation caseload.</div>
+              </div>
+              <button className="icon-button" onClick={() => setAddPatientModal(false)}>
+                <X size={18}/>
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label className="field-title">Athlete Full Name *</label>
+                <input 
+                  className="form-input" 
+                  value={newPatientName} 
+                  onChange={(e) => setNewPatientName(e.target.value)} 
+                  placeholder="e.g. Liam Davies"
+                  autoFocus
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label className="field-title">Sport & Position</label>
+                  <input 
+                    className="form-input" 
+                    value={newPatientSport} 
+                    onChange={(e) => setNewPatientSport(e.target.value)} 
+                    placeholder="e.g. Soccer (Central Midfielder)"
+                  />
+                </div>
+                <div>
+                  <label className="field-title">Age</label>
+                  <input 
+                    type="number"
+                    min="12"
+                    max="75"
+                    className="form-input" 
+                    value={newPatientAge} 
+                    onChange={(e) => setNewPatientAge(Number(e.target.value))} 
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label className="field-title">Surgical Graft Type</label>
+                  <select 
+                    className="form-input"
+                    value={newPatientGraft}
+                    onChange={(e) => setNewPatientGraft(e.target.value)}
+                  >
+                    <option value="Bone-Patellar Tendon-Bone (BPTB)">Bone-Patellar Tendon-Bone (BPTB)</option>
+                    <option value="Hamstring Tendon Autograft">Hamstring Tendon Autograft</option>
+                    <option value="Quadriceps Tendon Autograft">Quadriceps Tendon Autograft</option>
+                    <option value="Allograft (Donor Tendon)">Allograft (Donor Tendon)</option>
+                    <option value="Conservative (Non-Surgical)">Conservative (Non-Surgical)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="field-title">Surgery / Injury Date</label>
+                  <input 
+                    className="form-input" 
+                    value={newPatientSurgeryDate} 
+                    onChange={(e) => setNewPatientSurgeryDate(e.target.value)} 
+                    placeholder="e.g. Oct 14, 2026"
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label className="field-title">Operative Leg</label>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={() => setNewPatientLeg('left')}
+                      style={{
+                        flex: 1,
+                        background: newPatientLeg === 'left' ? 'var(--accent-emerald)' : 'var(--bg-card-subtle)',
+                        color: newPatientLeg === 'left' ? '#000000' : 'var(--text-secondary)',
+                        fontWeight: 700,
+                        border: '1px solid var(--border-light)'
+                      }}
+                    >
+                      Left Leg
+                    </button>
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={() => setNewPatientLeg('right')}
+                      style={{
+                        flex: 1,
+                        background: newPatientLeg === 'right' ? 'var(--accent-emerald)' : 'var(--bg-card-subtle)',
+                        color: newPatientLeg === 'right' ? '#000000' : 'var(--text-secondary)',
+                        fontWeight: 700,
+                        border: '1px solid var(--border-light)'
+                      }}
+                    >
+                      Right Leg
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="field-title">Initial Recovery Phase</label>
+                  <select 
+                    className="form-input"
+                    value={newPatientPhase}
+                    onChange={(e) => setNewPatientPhase(Number(e.target.value) as 1 | 2 | 3 | 4)}
+                  >
+                    <option value={1}>Phase 1: Acute Protection (Weeks 1–4)</option>
+                    <option value={2}>Phase 2: Neuromuscular Control (Weeks 5–12)</option>
+                    <option value={3}>Phase 3: Hypertrophy & Jogging (Weeks 13–20)</option>
+                    <option value={4}>Phase 4: Sport Agility & RTS (Weeks 21+)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="field-title">Initial Physiotherapy Directives</label>
+                <textarea 
+                  rows={2} 
+                  className="form-input" 
+                  value={newPatientNotes} 
+                  onChange={(e) => setNewPatientNotes(e.target.value)} 
+                  placeholder="Clinical guidelines, weight-bearing limits, or graft considerations."
+                />
+              </div>
+
+              <div className="modal-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 14 }}>
+                <button className="btn btn-quiet" onClick={() => setAddPatientModal(false)}>
+                  Cancel
+                </button>
+                <button className="btn btn-primary" onClick={handleCreatePatient}>
+                  <Check size={16}/> Register Athlete
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
+
       {/* Floating Modern Toast */}
       {toast && (
         <div className="toast" role="status">
@@ -2513,11 +2971,17 @@ function ClinicianView(props: {
   deleteExercise: (exId: string) => void;
   openDemo: (ex: Exercise) => void;
   updatePatientNotes: (notes: string) => void;
+  updatePatientPhase: (newPhase: 1 | 2 | 3 | 4) => void;
+  openAddPatient: () => void;
+  deletePatient: (id: string) => void;
+  openProfile: (p: Patient) => void;
+  switchToPatientPortal: (id: string) => void;
 }) {
   const { 
     patients, selectedPatientId, setSelectedPatientId, patient, latest, flags, 
     exportReport, videoUrl, videoMeta, videoPlaybackTime, setVideoPlaybackTime,
-    openAddExercise, openEditExercise, deleteExercise, openDemo, updatePatientNotes
+    openAddExercise, openEditExercise, deleteExercise, openDemo, updatePatientNotes,
+    updatePatientPhase, openAddPatient, deletePatient, openProfile, switchToPatientPortal
   } = props;
 
   const [notesEdit, setNotesEdit] = useState(patient.clinicianNotes);
@@ -2541,26 +3005,36 @@ function ClinicianView(props: {
           </div>
           <h1>Physiotherapist Clinical Dashboard</h1>
           <div className="muted">
-            Manage multi-athlete recovery journeys, alter prescribed exercises, and inspect on-device telemetry.
+            Manage multi-athlete recovery journeys, clear rehabilitation phases, and inspect on-device telemetry.
           </div>
         </div>
-        <button className="btn btn-primary" onClick={exportReport} data-testid="button-export-report">
-          <Download size={15}/> Export Patient CSV Report
-        </button>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <button className="btn btn-quiet" onClick={openAddPatient}>
+            <Plus size={15}/> Add New Patient
+          </button>
+          <button className="btn btn-primary" onClick={exportReport} data-testid="button-export-report">
+            <Download size={15}/> Export Patient CSV Report
+          </button>
+        </div>
       </div>
 
       {/* Patient Switcher Panel */}
       <div className="panel patient-selector-panel">
-        <div>
-          <div className="eyebrow" style={{ color: 'var(--accent-indigo)' }}>
-            <Users size={13}/> SELECT ACTIVE PATIENT ({patients.length} ATHLETES IN CARE)
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <div className="eyebrow" style={{ color: 'var(--accent-indigo)' }}>
+              <Users size={13}/> SELECT ACTIVE PATIENT ({patients.length} ATHLETES IN CASELOAD)
+            </div>
+            <p className="muted small" style={{ margin: '4px 0 0' }}>
+              Select any athlete below to inspect joint telemetry, clear rehabilitation phases, or alter exercises.
+            </p>
           </div>
-          <p className="muted small" style={{ margin: '4px 0 0' }}>
-            Click on any patient below to switch records, review progress, and alter their exercise protocol.
-          </p>
+          <button className="btn btn-primary" onClick={openAddPatient} style={{ padding: '7px 14px', fontSize: 12.5 }}>
+            <Plus size={14}/> Register New Patient
+          </button>
         </div>
 
-        <div className="patient-chips">
+        <div className="patient-chips" style={{ marginTop: 14 }}>
           {patients.map((p) => {
             const isSelected = p.id === selectedPatientId;
             return (
@@ -2568,12 +3042,25 @@ function ClinicianView(props: {
                 key={p.id}
                 className={`patient-chip ${isSelected ? 'active' : ''}`}
                 onClick={() => setSelectedPatientId(p.id)}
+                style={{ display: 'flex', alignItems: 'center', gap: 10 }}
               >
                 <div className="patient-avatar">{p.avatar}</div>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: 13 }}>{p.name}</div>
-                  <div className="muted small" style={{ fontSize: 11 }}>Phase {p.currentPhase} · Day {p.currentDay}</div>
+                  <div className="muted small" style={{ fontSize: 11 }}>Phase {p.currentPhase} · {p.sport.split(' ')[0]}</div>
                 </div>
+                <button 
+                  type="button" 
+                  className="icon-button" 
+                  style={{ width: 26, height: 26, marginLeft: 4, borderRadius: 6, opacity: 0.8 }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openProfile(p);
+                  }}
+                  title={`View ${p.name}'s Profile Dossier`}
+                >
+                  <User size={12}/>
+                </button>
               </div>
             );
           })}
@@ -2583,23 +3070,119 @@ function ClinicianView(props: {
       {/* Selected Patient Banner */}
       <div className="panel" style={{ padding: '22px 26px', marginBottom: 24, background: 'linear-gradient(135deg, var(--bg-card), var(--bg-card-subtle))' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <h2 style={{ fontSize: 26, margin: 0 }}>{patient.name}</h2>
-              <span className="tag tag-cyan">Phase {patient.currentPhase} Active</span>
+          <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+            <div className="patient-avatar" style={{ width: 54, height: 54, fontSize: 20 }}>
+              {patient.avatar}
             </div>
-            <div className="muted small" style={{ marginTop: 6, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-              <span>Age: <strong>{patient.age}</strong></span>
-              <span>Sport: <strong>{patient.sport}</strong></span>
-              <span>Graft: <strong>{patient.graft}</strong></span>
-              <span>Surgery Date: <strong>{patient.surgeryDate}</strong></span>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <h2 style={{ fontSize: 26, margin: 0 }}>{patient.name}</h2>
+                <span className="tag tag-cyan" style={{ fontSize: 11 }}>Phase {patient.currentPhase} Active</span>
+              </div>
+              <div className="muted small" style={{ marginTop: 6, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                <span>Age: <strong>{patient.age}</strong></span>
+                <span>Sport: <strong>{patient.sport}</strong></span>
+                <span>Graft: <strong>{patient.graft}</strong></span>
+                <span>Operative: <strong style={{ color: patient.legHighlightColor || 'var(--accent-cyan)' }}>{patient.affectedLeg?.toUpperCase() || 'RIGHT'} LEG</strong></span>
+                <span>Surgery: <strong>{patient.surgeryDate}</strong></span>
+              </div>
             </div>
           </div>
-          <div style={{ textAlign: 'right' }}>
-            <span className="mono" style={{ fontSize: 28, fontWeight: 900, color: 'var(--accent-cyan)' }}>
-              {patient.adherenceRate}%
-            </span>
-            <div className="muted small">Rehab Adherence Score</div>
+
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            <button className="btn btn-quiet" onClick={() => openProfile(patient)}>
+              <User size={14}/> View Full Profile
+            </button>
+            <button className="btn btn-quiet" onClick={() => switchToPatientPortal(patient.id)}>
+              <ExternalLink size={14}/> Open in Patient View
+            </button>
+            <button 
+              className="btn btn-danger" 
+              onClick={() => deletePatient(patient.id)}
+              title="Delete / Discharge athlete from care"
+            >
+              <Trash2 size={14}/> Delete
+            </button>
+          </div>
+        </div>
+
+        {/* CLINICIAN PHASE PROGRESSION & CLEARANCE SELECTOR */}
+        <div style={{ marginTop: 20, paddingTop: 18, borderTop: '1px solid var(--border-light)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+            <div className="eyebrow" style={{ color: 'var(--accent-emerald)', margin: 0 }}>
+              <ShieldAlert size={12}/> CLINICIAN PHASE CLEARANCE (CLICK TO CHANGE OR PROMOTE PHASE)
+            </div>
+            <span className="small muted">Evidence-based recovery progression · 1-click update</span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 10 }}>
+            {[
+              {
+                phase: 1,
+                title: 'Phase 1: Protection & Mobility',
+                weeks: 'Weeks 1–4',
+                criteria: 'Terminal lock 180°, effusion < 2+',
+                exercises: 'Quad Sets, SLR, Heel Slides, Patellar Mob'
+              },
+              {
+                phase: 2,
+                title: 'Phase 2: Neuromuscular Control',
+                weeks: 'Weeks 5–12',
+                criteria: 'Full flexion 120°+, quad LSI > 70%',
+                exercises: 'Wall Sits, Step-Ups, Cycling'
+              },
+              {
+                phase: 3,
+                title: 'Phase 3: Strength & Running',
+                weeks: 'Weeks 13–20',
+                criteria: 'LSI > 80%, pain-free jog, box stick landing',
+                exercises: 'Bulgarian Split Squats, Box Jumps, Jogging'
+              },
+              {
+                phase: 4,
+                title: 'Phase 4: Sport Agility & RTS',
+                weeks: 'Weeks 21–28+',
+                criteria: 'Hop tests > 90% LSI, reactive agility clearance',
+                exercises: '45° Cutting, Skater Bounds, Deceleration'
+              }
+            ].map((pItem) => {
+              const isActive = patient.currentPhase === pItem.phase;
+              const isPast = patient.currentPhase > pItem.phase;
+              return (
+                <div 
+                  key={pItem.phase}
+                  onClick={() => updatePatientPhase(pItem.phase as 1 | 2 | 3 | 4)}
+                  style={{
+                    padding: '12px 14px',
+                    borderRadius: 14,
+                    background: isActive ? 'rgba(0, 242, 254, 0.12)' : isPast ? 'rgba(16, 185, 129, 0.08)' : 'var(--bg-card-subtle)',
+                    border: isActive ? '2px solid var(--accent-cyan)' : isPast ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid var(--border-light)',
+                    cursor: 'pointer',
+                    boxShadow: isActive ? '0 0 16px rgba(0, 242, 254, 0.2)' : 'none',
+                    transition: 'all 0.2s ease',
+                  }}
+                  title={`Click to set ${patient.name} to Phase ${pItem.phase}`}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 11, fontWeight: 800, color: isActive ? 'var(--accent-cyan)' : isPast ? '#10b981' : '#94a3b8' }}>
+                      PHASE {pItem.phase} {isActive ? '• ACTIVE' : isPast ? '• COMPLETED' : ''}
+                    </span>
+                    {isActive ? (
+                      <span className="tag" style={{ background: 'var(--accent-cyan)', color: '#000000', fontSize: 9.5, fontWeight: 800, padding: '1px 6px' }}>CURRENT</span>
+                    ) : isPast ? (
+                      <CheckCircle2 size={13} color="#10b981"/>
+                    ) : (
+                      <span className="muted small" style={{ fontSize: 10 }}>Click to set</span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 13, fontWeight: 700, marginTop: 4 }}>{pItem.title.split(': ')[1]}</div>
+                  <div className="muted small" style={{ fontSize: 10.5, marginTop: 2 }}>{pItem.weeks} · {pItem.criteria}</div>
+                  <div style={{ fontSize: 10, color: 'var(--accent-cyan)', marginTop: 4 }}>
+                    Exercises: {pItem.exercises}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
 
