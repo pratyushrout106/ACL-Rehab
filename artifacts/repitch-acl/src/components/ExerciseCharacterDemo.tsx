@@ -27,12 +27,32 @@ export function ExerciseCharacterDemo({
   const lastTimeRef = useRef<number>(performance.now());
 
   const exKey = `${exerciseId} ${exerciseName}`.toLowerCase();
-  const isQuad = exKey.includes('quad');
-  const isRaise = exKey.includes('raise') || exKey.includes('slr') || exKey.includes('straight leg');
-  const isHeel = exKey.includes('heel') || exKey.includes('slide') || exKey.includes('flexion');
+  const isQuad = exKey.includes('quad') && !exKey.includes('wall') && !exKey.includes('split');
+  const isRaise = (exKey.includes('raise') || exKey.includes('slr') || exKey.includes('straight leg')) && !exKey.includes('step');
+  const isHeel = (exKey.includes('heel') || exKey.includes('slide') || exKey.includes('flexion')) && !exKey.includes('wall');
   const isPatella = exKey.includes('patell') || exKey.includes('mobili');
+  const isWallSit = exKey.includes('wall') || exKey.includes('sit');
+  const isStepUp = exKey.includes('step') || exKey.includes('box drop');
+  const isBike = exKey.includes('bike') || exKey.includes('cycl') || exKey.includes('rpm');
+  const isBulgarian = exKey.includes('bulgarian') || exKey.includes('split squat') || exKey.includes('lunge') || exKey.includes('rear foot');
+  const isBoxJump = exKey.includes('boxjump') || (exKey.includes('box') && exKey.includes('landing')) || exKey.includes('jump');
+  const isJogging = exKey.includes('jog') || exKey.includes('running') || exKey.includes('linear');
+  const isCutting = exKey.includes('cut') || exKey.includes('cone') || exKey.includes('decel');
+  const isSkater = exKey.includes('skater') || exKey.includes('bound') || exKey.includes('hop');
 
-  const cycleDuration = isQuad ? 8000 : isRaise ? 7000 : isHeel ? 7500 : isPatella ? 6000 : 5000;
+  const cycleDuration = isQuad ? 7500
+    : isRaise ? 7000
+    : isHeel ? 7000
+    : isPatella ? 6000
+    : isWallSit ? 8000
+    : isStepUp ? 6500
+    : isBike ? 2400
+    : isBulgarian ? 7000
+    : isBoxJump ? 6000
+    : isJogging ? 1600
+    : isCutting ? 5500
+    : isSkater ? 6000
+    : 5000;
 
   useEffect(() => {
     lastTimeRef.current = performance.now();
@@ -57,11 +77,11 @@ export function ExerciseCharacterDemo({
   let quadTension = 0;
 
   if (isQuad) {
-    if (progress < 0.15) {
+    if (progress < 0.18) {
       phaseName = '1. Tighten Quadriceps Firmly';
-      const t = progress / 0.15;
+      const t = progress / 0.18;
       quadTension = t;
-      kneeAngle = 175 + t * 5;
+      kneeAngle = Math.round(175 + t * 5);
     } else if (progress < 0.75) {
       phaseName = '2. Hold Terminal Extension Lock (5s)';
       isHoldPhase = true;
@@ -71,14 +91,14 @@ export function ExerciseCharacterDemo({
       phaseName = '3. Controlled Release & Rest';
       const t = (progress - 0.75) / 0.25;
       quadTension = 1 - t;
-      kneeAngle = 180 - t * 4;
+      kneeAngle = Math.round(180 - t * 5);
     }
   } else if (isRaise) {
     kneeAngle = 180;
     if (progress < 0.3) {
-      phaseName = '1. Lock Knee Straight & Elevate Leg';
+      phaseName = '1. Lock Knee Straight (180°) & Elevate Leg';
       const t = progress / 0.3;
-      hipAngle = 180 - t * 45;
+      hipAngle = Math.round(180 - t * 45);
       quadTension = 0.8;
     } else if (progress < 0.7) {
       phaseName = '2. Hold at 45° Peak (Zero Knee Lag)';
@@ -88,7 +108,7 @@ export function ExerciseCharacterDemo({
     } else if (progress < 0.95) {
       phaseName = '3. Controlled Eccentric Lowering';
       const t = (progress - 0.7) / 0.25;
-      hipAngle = 135 + t * 45;
+      hipAngle = Math.round(135 + t * 45);
       quadTension = 0.6;
     } else {
       phaseName = '4. Rest & Reset';
@@ -99,20 +119,20 @@ export function ExerciseCharacterDemo({
     if (progress < 0.4) {
       phaseName = '1. Smoothly Slide Heel Toward Glutes';
       const t = progress / 0.4;
-      kneeAngle = 180 - t * 70;
-      hipAngle = 180 - t * 45;
-    } else if (progress < 0.65) {
-      phaseName = '2. End-Range Flexion Hold';
+      kneeAngle = Math.round(180 - t * 70);
+      hipAngle = Math.round(180 - t * 45);
+    } else if (progress < 0.68) {
+      phaseName = '2. End-Range Flexion Hold (110°)';
       isHoldPhase = true;
       kneeAngle = 110;
       hipAngle = 135;
     } else if (progress < 0.95) {
       phaseName = '3. Glide Leg Smoothly Back to Straight';
-      const t = (progress - 0.65) / 0.3;
-      kneeAngle = 110 + t * 70;
-      hipAngle = 135 + t * 45;
+      const t = (progress - 0.68) / 0.27;
+      kneeAngle = Math.round(110 + t * 70);
+      hipAngle = Math.round(135 + t * 45);
     } else {
-      phaseName = '4. Full Extension Reset';
+      phaseName = '4. Full Extension Reset (180°)';
       kneeAngle = 180;
       hipAngle = 180;
     }
@@ -126,6 +146,104 @@ export function ExerciseCharacterDemo({
       phaseName = '3. Medial Patellar Glide (Inward)';
     } else {
       phaseName = '4. Lateral Patellar Glide (Outward)';
+    }
+  } else if (isWallSit) {
+    if (progress < 0.25) {
+      phaseName = '1. Smoothly Slide Down Wall to 60°';
+      const t = progress / 0.25;
+      kneeAngle = Math.round(180 - t * 120);
+    } else if (progress < 0.75) {
+      phaseName = '2. Isometric Quad Hold at 60° Flexion';
+      isHoldPhase = true;
+      kneeAngle = 60;
+    } else {
+      phaseName = '3. Push Through Heels to Stand';
+      const t = (progress - 0.75) / 0.25;
+      kneeAngle = Math.round(60 + t * 120);
+    }
+  } else if (isStepUp) {
+    if (progress < 0.25) {
+      phaseName = '1. Plant Lead Foot on 6" Rehab Step Box';
+      kneeAngle = 100;
+    } else if (progress < 0.55) {
+      phaseName = '2. Drive Up to Full Knee Extension (180°)';
+      const t = (progress - 0.25) / 0.3;
+      kneeAngle = Math.round(100 + t * 80);
+      isHoldPhase = t > 0.8;
+    } else if (progress < 0.88) {
+      phaseName = '3. Slow 3s Controlled Step-Down (No Valgus)';
+      const t = (progress - 0.55) / 0.33;
+      kneeAngle = Math.round(180 - t * 80);
+    } else {
+      phaseName = '4. Reset Athletic Starting Stance';
+      kneeAngle = 180;
+    }
+  } else if (isBike) {
+    const angleRad = progress * Math.PI * 2;
+    kneeAngle = Math.round(135 - Math.sin(angleRad) * 28);
+    phaseName = 'Cadence: 80 RPM Symmetrical Revolution';
+  } else if (isBulgarian) {
+    if (progress < 0.32) {
+      phaseName = '1. Controlled Descent on Front Leg';
+      const t = progress / 0.32;
+      kneeAngle = Math.round(180 - t * 90);
+    } else if (progress < 0.65) {
+      phaseName = '2. 90° Working Depth Hold (Knee Over Toe)';
+      isHoldPhase = true;
+      kneeAngle = 90;
+    } else if (progress < 0.92) {
+      phaseName = '3. Drive Through Front Heel to Stand';
+      const t = (progress - 0.65) / 0.27;
+      kneeAngle = Math.round(90 + t * 90);
+    } else {
+      phaseName = '4. Full Lockout & Pelvic Reset';
+      kneeAngle = 180;
+    }
+  } else if (isBoxJump) {
+    if (progress < 0.25) {
+      phaseName = '1. Athletic Load & Arm Swing Prep';
+      kneeAngle = 130;
+    } else if (progress < 0.45) {
+      phaseName = '2. Explosive Vertical Jump onto Box';
+      kneeAngle = 160;
+    } else if (progress < 0.82) {
+      phaseName = '3. Silent Soft Landing (90° Absorption Hold)';
+      isHoldPhase = true;
+      kneeAngle = 90;
+    } else {
+      phaseName = '4. Step Down & Return to Starting Position';
+      kneeAngle = 180;
+    }
+  } else if (isJogging) {
+    const sinCycle = Math.sin(progress * Math.PI * 2);
+    kneeAngle = Math.round(125 + sinCycle * 35);
+    phaseName = 'Linear Walk-to-Jog Cadence (~160 SPM)';
+  } else if (isCutting) {
+    if (progress < 0.3) {
+      phaseName = '1. Deceleration Approach Toward Cone';
+      kneeAngle = 150;
+    } else if (progress < 0.7) {
+      phaseName = '2. Plant Outside Foot & Flex 50° (Zero Valgus)';
+      isHoldPhase = true;
+      kneeAngle = 50;
+    } else {
+      phaseName = '3. High-Power Directional Push at 45°';
+      kneeAngle = 160;
+    }
+  } else if (isSkater) {
+    if (progress < 0.25) {
+      phaseName = '1. Load Stance Leg in Quarter Squat (60°)';
+      kneeAngle = 60;
+    } else if (progress < 0.45) {
+      phaseName = '2. Explosive Lateral Bound Across Mat';
+      kneeAngle = 140;
+    } else if (progress < 0.82) {
+      phaseName = '3. Single-Leg Stick Landing (2s Solid Hold)';
+      isHoldPhase = true;
+      kneeAngle = 60;
+    } else {
+      phaseName = '4. Reset Athletic Coronal Alignment';
+      kneeAngle = 175;
     }
   } else {
     phaseName = 'Controlled Cadence Demo';
@@ -153,50 +271,64 @@ export function ExerciseCharacterDemo({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: compact ? '8px 12px' : '10px 16px',
-          borderBottom: '1px solid rgba(255,255,255,0.08)',
-          background: 'rgba(0,0,0,0.3)',
+          padding: '8px 14px',
+          background: 'rgba(0, 0, 0, 0.35)',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+          <span
             style={{
               width: 8,
               height: 8,
               borderRadius: '50%',
               background: highlightColor,
-              boxShadow: `0 0 10px ${highlightColor}`,
+              boxShadow: `0 0 8px ${highlightColor}`,
             }}
           />
-          <span style={{ fontSize: compact ? 11 : 12, fontWeight: 700, letterSpacing: '0.05em', color: '#ffffff' }}>
-            CHARACTER DEMO: {exerciseName.toUpperCase()}
-          </span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <span
             style={{
-              fontSize: 10,
-              fontWeight: 700,
-              padding: '2px 8px',
-              borderRadius: 20,
-              background: isHoldPhase ? 'rgba(16, 185, 129, 0.2)' : 'rgba(0, 242, 254, 0.15)',
-              color: isHoldPhase ? '#10b981' : '#00f2fe',
-              border: `1px solid ${isHoldPhase ? '#10b981' : '#00f2fe'}`,
+              fontSize: 11,
+              fontWeight: 800,
+              color: '#ffffff',
+              letterSpacing: '0.04em',
+              textTransform: 'uppercase',
             }}
           >
-            {isHoldPhase ? '● ISOMETRIC HOLD' : '● MOVING'}
+            CHARACTER DEMO: {exerciseName}
           </span>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {isHoldPhase && (
+            <span
+              style={{
+                fontSize: 9.5,
+                fontWeight: 800,
+                color: '#10b981',
+                background: 'rgba(16, 185, 129, 0.15)',
+                border: '1px solid #10b981',
+                padding: '2px 7px',
+                borderRadius: 999,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+              }}
+            >
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981' }} />
+              ISOMETRIC HOLD
+            </span>
+          )}
         </div>
       </div>
 
-      {/* SVG Biomechanical Character Canvas */}
+      {/* SVG Canvas Stage */}
       <div
         style={{
           position: 'relative',
           width: '100%',
-          aspectRatio: compact ? '16 / 9' : '16 / 10',
-          maxHeight: compact ? 220 : 340,
-          background: 'radial-gradient(ellipse at 50% 60%, rgba(0, 242, 254, 0.08) 0%, rgba(0,0,0,0) 70%)',
+          aspectRatio: '16 / 10',
+          background: 'radial-gradient(ellipse at 50% 40%, #151d30 0%, #080d18 100%)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -225,7 +357,7 @@ export function ExerciseCharacterDemo({
           <rect x="60" y="380" width="680" height="14" rx="7" fill="#1e293b" />
           <line x1="80" y1="380" x2="720" y2="380" stroke="#334155" strokeWidth="2" strokeDasharray="6 6" />
 
-          {/* RENDER SPECIFIC EXERCISE POSTURES */}
+          {/* RENDER SPECIFIC CLINICALLY ACCURATE SCENES */}
           {isQuad && (
             <QuadSetScene
               quadTension={quadTension}
@@ -257,11 +389,71 @@ export function ExerciseCharacterDemo({
             />
           )}
 
-          {!isQuad && !isRaise && !isHeel && !isPatella && (
-            <GeneralScene
-              progress={progress}
-              exerciseName={exerciseName}
+          {isWallSit && (
+            <WallSitScene
+              kneeAngle={kneeAngle}
               highlightColor={highlightColor}
+              isHoldPhase={isHoldPhase}
+            />
+          )}
+
+          {isStepUp && (
+            <StepUpScene
+              progress={progress}
+              kneeAngle={kneeAngle}
+              highlightColor={highlightColor}
+              isHoldPhase={isHoldPhase}
+            />
+          )}
+
+          {isBike && (
+            <BikeScene
+              progress={progress}
+              kneeAngle={kneeAngle}
+              highlightColor={highlightColor}
+            />
+          )}
+
+          {isBulgarian && (
+            <BulgarianScene
+              kneeAngle={kneeAngle}
+              highlightColor={highlightColor}
+              isHoldPhase={isHoldPhase}
+            />
+          )}
+
+          {isBoxJump && (
+            <BoxJumpScene
+              progress={progress}
+              kneeAngle={kneeAngle}
+              highlightColor={highlightColor}
+              isHoldPhase={isHoldPhase}
+            />
+          )}
+
+          {isJogging && (
+            <JoggingScene
+              progress={progress}
+              kneeAngle={kneeAngle}
+              highlightColor={highlightColor}
+            />
+          )}
+
+          {isCutting && (
+            <CuttingScene
+              progress={progress}
+              kneeAngle={kneeAngle}
+              highlightColor={highlightColor}
+              isHoldPhase={isHoldPhase}
+            />
+          )}
+
+          {isSkater && (
+            <SkaterScene
+              progress={progress}
+              kneeAngle={kneeAngle}
+              highlightColor={highlightColor}
+              isHoldPhase={isHoldPhase}
             />
           )}
         </svg>
@@ -271,9 +463,10 @@ export function ExerciseCharacterDemo({
           style={{
             position: 'absolute',
             bottom: 12,
-            left: 16,
-            background: 'rgba(10, 15, 25, 0.88)',
+            left: 14,
+            background: 'rgba(10, 15, 25, 0.9)',
             border: `1px solid ${highlightColor}`,
+            boxShadow: `0 0 12px ${highlightColor}44`,
             borderRadius: 8,
             padding: '4px 10px',
             display: 'flex',
@@ -344,34 +537,34 @@ export function ExerciseCharacterDemo({
       </div>
 
       {/* Dynamic Phase Title & Form Cues */}
-      <div style={{ padding: compact ? '10px 12px' : '14px 18px', background: 'rgba(0,0,0,0.25)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: '#00f2fe' }}>
+      <div style={{ padding: compact ? '8px 12px' : '10px 16px', background: 'rgba(0,0,0,0.25)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+          <span style={{ fontSize: 12.5, fontWeight: 700, color: '#00f2fe' }}>
             {phaseName}
           </span>
-          <span style={{ fontSize: 11, color: '#94a3b8', fontFamily: 'monospace' }}>
+          <span style={{ fontSize: 10.5, color: '#94a3b8', fontFamily: 'monospace' }}>
             Target: {target}
           </span>
         </div>
 
         {!compact && cues.length > 0 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
             {cues.map((cue, idx) => (
               <span
                 key={idx}
                 style={{
-                  fontSize: 11,
+                  fontSize: 10.5,
                   background: 'rgba(30, 41, 59, 0.7)',
                   border: '1px solid rgba(255,255,255,0.08)',
-                  padding: '3px 9px',
+                  padding: '2px 8px',
                   borderRadius: 6,
                   color: '#cbd5e1',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 5,
+                  gap: 4,
                 }}
               >
-                <CheckCircle2 size={11} color={highlightColor} /> {cue}
+                <CheckCircle2 size={10} color={highlightColor} /> {cue}
               </span>
             ))}
           </div>
@@ -381,217 +574,123 @@ export function ExerciseCharacterDemo({
   );
 }
 
-function QuadSetScene({
-  quadTension,
-  highlightColor,
-  isHoldPhase,
-}: {
-  quadTension: number;
-  highlightColor: string;
-  isHoldPhase: boolean;
-}) {
+// 1. Quad Sets Scene
+function QuadSetScene({ quadTension, highlightColor, isHoldPhase }: { quadTension: number; highlightColor: string; isHoldPhase: boolean }) {
   const kneeY = 328 + quadTension * 12;
   const kneeX = 440;
-
   return (
     <g>
       <ellipse cx="610" cy="372" rx="28" ry="12" fill="#3b82f6" />
-      <text x="610" y="394" fill="#94a3b8" fontSize="11" textAnchor="middle" fontWeight="600">
-        Rolled Towel
-      </text>
-
+      <text x="610" y="394" fill="#94a3b8" fontSize="11" textAnchor="middle" fontWeight="600">Rolled Towel</text>
       <polygon points="120,380 220,380 180,260" fill="#334155" opacity="0.6" />
-
       <circle cx="180" cy="180" r="28" fill="url(#skinGrad)" />
       <circle cx="194" cy="176" r="3" fill="#0f172a" />
-      <path d="M 194 184 Q 200 188 196 192" stroke="#0f172a" strokeWidth="2" fill="none" />
       <path d="M 180 208 L 195 240" stroke="url(#skinGrad)" strokeWidth="16" strokeLinecap="round" />
       <path d="M 195 230 L 255 330" stroke="#0284c7" strokeWidth="48" strokeLinecap="round" />
-      <path d="M 205 245 L 140 310 L 130 380" stroke="url(#skinGrad)" strokeWidth="18" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-
+      <path d="M 205 245 L 140 310 L 130 380" stroke="url(#skinGrad)" strokeWidth="18" strokeLinecap="round" fill="none" />
       <path d="M 260 330 Q 320 290 410 375" stroke="#475569" strokeWidth="22" strokeLinecap="round" fill="none" opacity="0.4" />
-
-      <path
-        d={`M 260 330 L ${kneeX} ${kneeY}`}
-        stroke="#1e293b"
-        strokeWidth="36"
-        strokeLinecap="round"
-      />
-
+      <path d={`M 260 330 L ${kneeX} ${kneeY}`} stroke="#1e293b" strokeWidth="36" strokeLinecap="round" />
       {quadTension > 0.05 && (
-        <path
-          d={`M 290 320 Q 350 ${kneeY - 24 - quadTension * 8} ${kneeX - 20} ${kneeY - 14}`}
-          stroke={highlightColor}
-          strokeWidth={14 + quadTension * 6}
-          strokeLinecap="round"
-          fill="none"
-          opacity={0.3 + quadTension * 0.6}
-          filter="url(#glowFilter)"
-        />
+        <path d={`M 290 320 Q 350 ${kneeY - 24 - quadTension * 8} ${kneeX - 20} ${kneeY - 14}`} stroke={highlightColor} strokeWidth={14 + quadTension * 6} strokeLinecap="round" fill="none" opacity={0.3 + quadTension * 0.6} filter="url(#glowFilter)" />
       )}
-
-      <path
-        d={`M ${kneeX} ${kneeY} L 610 360`}
-        stroke="url(#skinGrad)"
-        strokeWidth="24"
-        strokeLinecap="round"
-      />
-
-      <path d="M 610 360 L 616 325" stroke="url(#skinGrad)" strokeWidth="20" strokeLinecap="round" />
+      <path d={`M ${kneeX} ${kneeY} L 610 360`} stroke="url(#skinGrad)" strokeWidth="24" strokeLinecap="round" />
       <polygon points="606,330 636,322 626,365 604,365" fill="#f8fafc" />
-
       <line x1="620" y1="310" x2="620" y2="280" stroke="#00f2fe" strokeWidth="2" strokeDasharray="3 3" />
       <polygon points="616,284 620,274 624,284" fill="#00f2fe" />
       <text x="635" y="295" fill="#00f2fe" fontSize="10" fontWeight="700">TOE UP</text>
-
       <circle cx={kneeX} cy={kneeY} r={18 + (isHoldPhase ? 4 : 0)} stroke={highlightColor} strokeWidth="3" fill="none" filter="url(#glowFilter)" />
       <circle cx={kneeX} cy={kneeY} r="8" fill={highlightColor} />
       <circle cx={kneeX} cy={kneeY} r="3" fill="#ffffff" />
-
       {quadTension > 0.4 && (
         <g>
           <line x1={kneeX} y1={kneeY - 45} x2={kneeX} y2={kneeY - 25} stroke={highlightColor} strokeWidth="3" />
           <polygon points={`${kneeX - 5},${kneeY - 28} ${kneeX},${kneeY - 20} ${kneeX + 5},${kneeY - 28}`} fill={highlightColor} />
-          <text x={kneeX + 16} y={kneeY - 30} fill={highlightColor} fontSize="11" fontWeight="800">
-            PRESS DOWN
-          </text>
+          <text x={kneeX + 16} y={kneeY - 30} fill={highlightColor} fontSize="11" fontWeight="800">PRESS DOWN</text>
         </g>
       )}
-
       <g transform={`translate(${kneeX - 70}, ${kneeY - 80})`}>
         <rect x="0" y="0" width="140" height="32" rx="8" fill="rgba(10,15,25,0.92)" stroke={highlightColor} strokeWidth="1.5" />
-        <text x="70" y="20" fill="#ffffff" fontSize="11" fontWeight="700" textAnchor="middle">
-          {isHoldPhase ? 'TERMINAL LOCK 180°' : 'FLATTEN KNEE'}
-        </text>
+        <text x="70" y="20" fill="#ffffff" fontSize="11" fontWeight="700" textAnchor="middle">{isHoldPhase ? 'TERMINAL LOCK 180°' : 'FLATTEN KNEE'}</text>
       </g>
     </g>
   );
 }
 
-function StraightLegRaiseScene({
-  hipAngle,
-  highlightColor,
-  isHoldPhase,
-}: {
-  hipAngle: number;
-  highlightColor: string;
-  isHoldPhase: boolean;
-}) {
+// 2. Straight Leg Raise Scene
+function StraightLegRaiseScene({ hipAngle, highlightColor, isHoldPhase }: { hipAngle: number; highlightColor: string; isHoldPhase: boolean }) {
   const rad = ((180 - hipAngle) * Math.PI) / 180;
   const legLen1 = 140;
   const legLen2 = 140;
-
   const kneeX = 340 + Math.cos(rad) * legLen1;
   const kneeY = 360 - Math.sin(rad) * legLen1;
-
   const ankleX = kneeX + Math.cos(rad) * legLen2;
   const ankleY = kneeY - Math.sin(rad) * legLen2;
-
   return (
     <g>
       <rect x="110" y="350" width="50" height="25" rx="6" fill="#475569" />
       <circle cx="140" cy="345" r="24" fill="url(#skinGrad)" />
       <circle cx="146" cy="338" r="3" fill="#0f172a" />
       <path d="M 160 360 L 340 360" stroke="#0284c7" strokeWidth="44" strokeLinecap="round" />
-      <path d="M 190 350 L 250 330 L 290 350" stroke="url(#skinGrad)" strokeWidth="14" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-
-      <path d="M 340 360 L 400 280 L 460 375" stroke="#475569" strokeWidth="22" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity="0.45" />
+      <path d="M 190 350 L 250 330 L 290 350" stroke="url(#skinGrad)" strokeWidth="14" strokeLinecap="round" fill="none" />
+      <path d="M 340 360 L 400 280 L 460 375" stroke="#475569" strokeWidth="22" strokeLinecap="round" fill="none" opacity="0.45" />
       <polygon points="450,375 480,375 460,355" fill="#64748b" opacity="0.45" />
-      <text x="410" y="270" fill="#94a3b8" fontSize="10" fontWeight="600" textAnchor="middle">
-        Opposite Leg Bent (Stabilizer)
-      </text>
-
-      <path d="M 600 360 A 260 260 0 0 0 525 176" stroke="rgba(0, 242, 254, 0.25)" strokeWidth="2" strokeDasharray="4 4" fill="none" />
-      <text x="545" y="190" fill="#00f2fe" fontSize="11" fontWeight="700">45° TARGET</text>
-
-      <line x1="340" y1="360" x2={kneeX} y2={kneeY} stroke="#1e293b" strokeWidth="32" strokeLinecap="round" />
+      <text x="410" y="270" fill="#94a3b8" fontSize="10" fontWeight="600" textAnchor="middle">Opposite Knee Bent</text>
+      <line x1="340" y1="360" x2={kneeX} y2={kneeY} stroke="#1e293b" strokeWidth="34" strokeLinecap="round" />
+      <line x1="340" y1="360" x2={kneeX} y2={kneeY} stroke={highlightColor} strokeWidth="10" strokeLinecap="round" opacity="0.4" />
       <line x1={kneeX} y1={kneeY} x2={ankleX} y2={ankleY} stroke="url(#skinGrad)" strokeWidth="22" strokeLinecap="round" />
-
-      <line x1={ankleX} y1={ankleY} x2={ankleX - Math.sin(rad) * 32} y2={ankleY - Math.cos(rad) * 32} stroke="#f8fafc" strokeWidth="18" strokeLinecap="round" />
-
-      <circle cx={kneeX} cy={kneeY} r={18} stroke={highlightColor} strokeWidth="3" fill="none" filter="url(#glowFilter)" />
-      <circle cx={kneeX} cy={kneeY} r="7" fill={highlightColor} />
+      <circle cx={ankleX} cy={ankleY} r="12" fill="#38bdf8" />
+      <circle cx={kneeX} cy={kneeY} r="20" stroke={highlightColor} strokeWidth="3" fill="none" filter="url(#glowFilter)" />
+      <circle cx={kneeX} cy={kneeY} r="8" fill={highlightColor} />
       <circle cx={kneeX} cy={kneeY} r="3" fill="#ffffff" />
-
-      <g transform={`translate(${kneeX - 70}, ${kneeY - 55})`}>
-        <rect x="0" y="0" width="140" height="28" rx="7" fill="rgba(10,15,25,0.92)" stroke={highlightColor} strokeWidth="1.2" />
-        <text x="70" y="18" fill="#ffffff" fontSize="10.5" fontWeight="700" textAnchor="middle">
-          {isHoldPhase ? '✓ ZERO EXTENSION LAG' : 'KNEE LOCKED 180°'}
-        </text>
+      <path d={`M 340 360 L 580 360`} stroke="#334155" strokeWidth="2" strokeDasharray="4 4" />
+      <path d={`M 420 360 A 80 80 0 0 0 ${340 + Math.cos(rad) * 80} ${360 - Math.sin(rad) * 80}`} stroke="#00f2fe" strokeWidth="2.5" fill="none" />
+      <text x="430" y="340" fill="#00f2fe" fontSize="12" fontWeight="800">45° ELEVATION</text>
+      <g transform={`translate(${kneeX - 70}, ${kneeY - 60})`}>
+        <rect x="0" y="0" width="140" height="30" rx="8" fill="rgba(10,15,25,0.92)" stroke={highlightColor} strokeWidth="1.2" />
+        <text x="70" y="19" fill="#ffffff" fontSize="11" fontWeight="700" textAnchor="middle">{isHoldPhase ? 'ZERO EXTENSION LAG' : 'KNEE LOCKED 180°'}</text>
       </g>
     </g>
   );
 }
 
-function HeelSlideScene({
-  kneeAngle,
-  highlightColor,
-  isHoldPhase,
-}: {
-  kneeAngle: number;
-  highlightColor: string;
-  isHoldPhase: boolean;
-}) {
-  const flexT = (180 - kneeAngle) / 70;
-  const kneeX = 460 - flexT * 70;
-  const kneeY = 360 - flexT * 110;
-  const heelX = 620 - flexT * 190;
-  const heelY = 372;
-
+// 3. Heel Slide Scene
+function HeelSlideScene({ kneeAngle, highlightColor, isHoldPhase }: { kneeAngle: number; highlightColor: string; isHoldPhase: boolean }) {
+  const flexRad = ((180 - kneeAngle) * Math.PI) / 180;
+  const femurLen = 130;
+  const tibiaLen = 130;
+  const hipX = 320;
+  const hipY = 360;
+  const kneeX = hipX + Math.cos(flexRad * 0.5) * femurLen;
+  const kneeY = hipY - Math.sin(flexRad * 0.5) * femurLen;
+  const heelX = kneeX + Math.cos(flexRad * 0.5) * tibiaLen;
+  const heelY = 370;
   return (
     <g>
-      <rect x="420" y="375" width="220" height="8" rx="4" fill="rgba(0, 242, 254, 0.2)" />
-      <g opacity="0.6">
-        <line x1="470" y1="392" x2="580" y2="392" stroke="#00f2fe" strokeWidth="2" strokeDasharray="4 4" />
-        <polygon points="466,392 474,388 474,396" fill="#00f2fe" />
-        <polygon points="584,392 576,388 576,396" fill="#00f2fe" />
-        <text x="525" y="408" fill="#00f2fe" fontSize="10" textAnchor="middle" fontWeight="600">
-          GLIDE CADENCE
-        </text>
-      </g>
-
       <rect x="100" y="350" width="50" height="25" rx="6" fill="#475569" />
       <circle cx="130" cy="345" r="24" fill="url(#skinGrad)" />
       <path d="M 150 360 L 320 360" stroke="#0284c7" strokeWidth="44" strokeLinecap="round" />
-
       <line x1="320" y1="365" x2="600" y2="365" stroke="#475569" strokeWidth="20" strokeLinecap="round" opacity="0.35" />
-
       <line x1="320" y1="360" x2={kneeX} y2={kneeY} stroke="#1e293b" strokeWidth="32" strokeLinecap="round" />
       <line x1={kneeX} y1={kneeY} x2={heelX} y2={heelY} stroke="url(#skinGrad)" strokeWidth="22" strokeLinecap="round" />
-
       <circle cx={heelX} cy={heelY} r="14" fill="#38bdf8" />
-
-      <circle cx={kneeX} cy={kneeY} r={24} stroke={highlightColor} strokeWidth="2.5" strokeDasharray="3 3" fill="none" />
-      <circle cx={kneeX} cy={kneeY} r={16} stroke={highlightColor} strokeWidth="3" fill="none" filter="url(#glowFilter)" />
+      <circle cx={kneeX} cy={kneeY} r="24" stroke={highlightColor} strokeWidth="2.5" strokeDasharray="3 3" fill="none" />
+      <circle cx={kneeX} cy={kneeY} r="16" stroke={highlightColor} strokeWidth="3" fill="none" filter="url(#glowFilter)" />
       <circle cx={kneeX} cy={kneeY} r="7" fill={highlightColor} />
       <circle cx={kneeX} cy={kneeY} r="3" fill="#ffffff" />
-
       <g transform={`translate(${kneeX - 65}, ${kneeY - 60})`}>
         <rect x="0" y="0" width="130" height="32" rx="8" fill="rgba(10,15,25,0.92)" stroke={highlightColor} strokeWidth="1.2" />
-        <text x="65" y="16" fill="#ffffff" fontSize="10.5" fontWeight="700" textAnchor="middle">
-          {isHoldPhase ? 'END RANGE HOLD' : `FLEXION: ${kneeAngle}°`}
-        </text>
-        <text x="65" y="27" fill={highlightColor} fontSize="9" fontWeight="600" textAnchor="middle">
-          TARGET: 110°
-        </text>
+        <text x="65" y="16" fill="#ffffff" fontSize="10.5" fontWeight="700" textAnchor="middle">{isHoldPhase ? 'END RANGE HOLD' : `FLEXION: ${kneeAngle}°`}</text>
+        <text x="65" y="27" fill={highlightColor} fontSize="9" fontWeight="600" textAnchor="middle">TARGET: 110°</text>
       </g>
     </g>
   );
 }
 
-function PatellarMobScene({
-  progress,
-  highlightColor,
-}: {
-  progress: number;
-  highlightColor: string;
-}) {
+// 4. Patellar Mobilization Scene
+function PatellarMobScene({ progress, highlightColor }: { progress: number; highlightColor: string }) {
   const kneeX = 460;
   const kneeY = 350;
-
-  let dx = 0;
-  let dy = 0;
-  let dirText = 'SUPERIOR GLIDE';
+  let dx = 0; let dy = 0; let dirText = 'SUPERIOR GLIDE';
   if (progress < 0.25) {
     dy = -Math.sin((progress / 0.25) * Math.PI) * 14;
     dirText = 'SUPERIOR (UPWARD)';
@@ -605,83 +704,398 @@ function PatellarMobScene({
     dx = Math.sin(((progress - 0.75) / 0.25) * Math.PI) * 14;
     dirText = 'LATERAL (OUTWARD)';
   }
-
   return (
     <g>
       <circle cx="160" cy="220" r="26" fill="url(#skinGrad)" />
       <path d="M 175 240 L 260 360" stroke="#0284c7" strokeWidth="44" strokeLinecap="round" />
       <line x1="260" y1="360" x2="640" y2="360" stroke="url(#skinGrad)" strokeWidth="26" strokeLinecap="round" />
-
       <rect x="290" y="325" width="130" height="26" rx="6" fill="rgba(16, 185, 129, 0.15)" stroke="#10b981" strokeWidth="1" strokeDasharray="3 3" />
-      <text x="355" y="342" fill="#10b981" fontSize="10" fontWeight="700" textAnchor="middle">
-        QUAD RELAXED 100%
-      </text>
-
+      <text x="355" y="342" fill="#10b981" fontSize="10" fontWeight="700" textAnchor="middle">QUAD RELAXED 100%</text>
       <circle cx={kneeX - 35} cy={kneeY - 20} r="16" fill="url(#skinGrad)" opacity="0.9" />
       <circle cx={kneeX + 35} cy={kneeY - 20} r="16" fill="url(#skinGrad)" opacity="0.9" />
-      <path d="M 210 280 L 425 330" stroke="url(#skinGrad)" strokeWidth="12" strokeLinecap="round" />
-      <path d="M 210 280 L 495 330" stroke="url(#skinGrad)" strokeWidth="12" strokeLinecap="round" />
-
       <ellipse cx={kneeX + dx} cy={kneeY - 8 + dy} rx="20" ry="16" fill={highlightColor} opacity="0.85" filter="url(#glowFilter)" />
       <circle cx={kneeX + dx} cy={kneeY - 8 + dy} r="6" fill="#ffffff" />
-
       <g stroke="#00f2fe" strokeWidth="2.5" opacity="0.8">
         <line x1={kneeX} y1={kneeY - 45} x2={kneeX} y2={kneeY - 25} />
         <polygon points={`${kneeX - 4},${kneeY - 40} ${kneeX},${kneeY - 48} ${kneeX + 4},${kneeY - 40}`} fill="#00f2fe" />
-
         <line x1={kneeX} y1={kneeY + 15} x2={kneeX} y2={kneeY + 35} />
         <polygon points={`${kneeX - 4},${kneeY + 30} ${kneeX},${kneeY + 38} ${kneeX + 4},${kneeY + 30}`} fill="#00f2fe" />
-
-        <line x1={kneeX - 45} y1={kneeY - 8} x2={kneeX - 25} y2={kneeY - 8} />
-        <polygon points={`${kneeX - 40},${kneeY - 12} ${kneeX - 48},${kneeY - 8} ${kneeX - 40},${kneeY - 4}`} fill="#00f2fe" />
-
-        <line x1={kneeX + 25} y1={kneeY - 8} x2={kneeX + 45} y2={kneeY - 8} />
-        <polygon points={`${kneeX + 40},${kneeY - 12} ${kneeX + 48},${kneeY - 8} ${kneeX + 40},${kneeY - 4}`} fill="#00f2fe" />
       </g>
-
       <g transform={`translate(${kneeX - 80}, ${kneeY - 90})`}>
         <rect x="0" y="0" width="160" height="30" rx="7" fill="rgba(10,15,25,0.92)" stroke={highlightColor} strokeWidth="1.2" />
-        <text x="80" y="19" fill="#ffffff" fontSize="10" fontWeight="700" textAnchor="middle">
-          {dirText}
+        <text x="80" y="19" fill="#ffffff" fontSize="10" fontWeight="700" textAnchor="middle">{dirText}</text>
+      </g>
+    </g>
+  );
+}
+
+// 5. Wall Sits Scene (Phase 2)
+function WallSitScene({ kneeAngle, highlightColor, isHoldPhase }: { kneeAngle: number; highlightColor: string; isHoldPhase: boolean }) {
+  const t = (180 - kneeAngle) / 120; // 0 (standing) to 1 (60 deg)
+  const hipY = 240 + t * 65;
+  const kneeY = hipY;
+  const kneeX = 260 + t * 90;
+  const footX = kneeX;
+  const footY = 380;
+  return (
+    <g>
+      {/* Wall */}
+      <rect x="180" y="80" width="24" height="300" fill="#334155" />
+      <line x1="204" y1="80" x2="204" y2="380" stroke="#64748b" strokeWidth="3" />
+      <text x="170" y="200" fill="#64748b" fontSize="11" fontWeight="700" transform="rotate(-90 170 200)">CLINICAL WALL</text>
+
+      {/* Head & Torso resting against wall */}
+      <circle cx="218" cy={hipY - 110} r="22" fill="url(#skinGrad)" />
+      <line x1="210" y1={hipY - 90} x2="210" y2={hipY} stroke="#0284c7" strokeWidth="36" strokeLinecap="round" />
+      
+      {/* Arm holding across chest */}
+      <path d={`M 215 ${hipY - 70} L 270 ${hipY - 40} L 240 ${hipY - 20}`} stroke="url(#skinGrad)" strokeWidth="12" strokeLinecap="round" fill="none" />
+
+      {/* Thigh (Femur) */}
+      <line x1="210" y1={hipY} x2={kneeX} y2={kneeY} stroke="#1e293b" strokeWidth="32" strokeLinecap="round" />
+      <line x1="210" y1={hipY} x2={kneeX} y2={kneeY} stroke={highlightColor} strokeWidth="10" strokeLinecap="round" opacity="0.5" filter="url(#glowFilter)" />
+
+      {/* Shin (Tibia) straight down to floor */}
+      <line x1={kneeX} y1={kneeY} x2={footX} y2={footY} stroke="url(#skinGrad)" strokeWidth="22" strokeLinecap="round" />
+      <polygon points={`${footX - 10},${footY} ${footX + 35},${footY} ${footX + 25},${footY - 18} ${footX - 10},${footY - 18}`} fill="#38bdf8" />
+
+      {/* Knee joint highlight */}
+      <circle cx={kneeX} cy={kneeY} r="18" stroke={highlightColor} strokeWidth="3" fill="none" filter="url(#glowFilter)" />
+      <circle cx={kneeX} cy={kneeY} r="7" fill={highlightColor} />
+      <circle cx={kneeX} cy={kneeY} r="3" fill="#ffffff" />
+
+      {/* Vertical plumbline: Knee over ankle */}
+      <line x1={kneeX} y1={kneeY} x2={footX} y2={footY} stroke="#00f2fe" strokeWidth="1.5" strokeDasharray="3 3" opacity="0.6" />
+
+      <g transform={`translate(${kneeX - 20}, ${kneeY - 60})`}>
+        <rect x="0" y="0" width="150" height="30" rx="7" fill="rgba(10,15,25,0.92)" stroke={highlightColor} strokeWidth="1.2" />
+        <text x="75" y="19" fill="#ffffff" fontSize="10.5" fontWeight="700" textAnchor="middle">
+          {isHoldPhase ? 'WALL SIT: 60° LOCKED' : `FLEXION: ${kneeAngle}°`}
         </text>
       </g>
     </g>
   );
 }
 
-function GeneralScene({
-  progress,
-  exerciseName,
-  highlightColor,
-}: {
-  progress: number;
-  exerciseName: string;
-  highlightColor: string;
-}) {
-  const t = Math.sin(progress * Math.PI * 2);
-  const hipY = 240 + Math.abs(t) * 40;
-  const kneeY = 320 + Math.abs(t) * 20;
+// 6. Step-Up Scene (Phase 2)
+function StepUpScene({ progress, kneeAngle, highlightColor, isHoldPhase }: { progress: number; kneeAngle: number; highlightColor: string; isHoldPhase: boolean }) {
+  const boxX = 430;
+  const boxY = 280;
+  const isAscending = progress < 0.55;
+  const t = isAscending ? (progress - 0.25) / 0.3 : 1 - (progress - 0.55) / 0.33;
+  const clampedT = Math.max(0, Math.min(1, t));
+  const hipY = 250 - clampedT * 60;
+  const leadKneeX = 470;
+  const leadKneeY = hipY + 50 + (1 - clampedT) * 30;
 
   return (
     <g>
-      <circle cx="400" cy="120" r="24" fill="url(#skinGrad)" />
-      <line x1="400" y1="144" x2="400" y2={hipY} stroke="#0284c7" strokeWidth="36" strokeLinecap="round" />
-      <path d="M 400 170 L 340 220 L 400 250" stroke="url(#skinGrad)" strokeWidth="14" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-      <path d="M 400 170 L 460 220 L 400 250" stroke="url(#skinGrad)" strokeWidth="14" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      {/* 6-inch Step Box */}
+      <rect x={boxX} y={boxY} width="200" height="100" rx="8" fill="#1e293b" stroke="#475569" strokeWidth="2" />
+      <line x1={boxX} y1={boxY + 6} x2={boxX + 200} y2={boxY + 6} stroke="#00f2fe" strokeWidth="2" strokeDasharray="4 4" />
+      <text x={boxX + 100} y={boxY + 45} fill="#94a3b8" fontSize="12" fontWeight="700" textAnchor="middle">6" REHAB BOX</text>
 
-      <line x1="385" y1={hipY} x2="360" y2={kneeY} stroke="#1e293b" strokeWidth="26" strokeLinecap="round" />
-      <line x1="360" y1={kneeY} x2="360" y2={380} stroke="url(#skinGrad)" strokeWidth="20" strokeLinecap="round" />
+      {/* Head & Torso */}
+      <circle cx={420} cy={hipY - 95} r="22" fill="url(#skinGrad)" />
+      <line x1={420} y1={hipY - 75} x2={420} y2={hipY} stroke="#0284c7" strokeWidth="34" strokeLinecap="round" />
 
-      <line x1="415" y1={hipY} x2="440" y2={kneeY} stroke={highlightColor} strokeWidth="26" strokeLinecap="round" />
-      <line x1="440" y1={kneeY} x2="440" y2={380} stroke="url(#skinGrad)" strokeWidth="20" strokeLinecap="round" />
+      {/* Trailing leg */}
+      <line x1="410" y1={hipY} x2="380" y2={clampedT > 0.8 ? boxY + 20 : 380} stroke="#475569" strokeWidth="20" strokeLinecap="round" opacity="0.6" />
 
-      <circle cx={440} cy={kneeY} r="16" stroke={highlightColor} strokeWidth="3" fill="none" filter="url(#glowFilter)" />
-      <circle cx={440} cy={kneeY} r="6" fill={highlightColor} />
+      {/* Lead operative leg on box */}
+      <line x1="425" y1={hipY} x2={leadKneeX} y2={leadKneeY} stroke="#1e293b" strokeWidth="30" strokeLinecap="round" />
+      <line x1="425" y1={hipY} x2={leadKneeX} y2={leadKneeY} stroke={highlightColor} strokeWidth="10" strokeLinecap="round" opacity="0.6" filter="url(#glowFilter)" />
+      <line x1={leadKneeX} y1={leadKneeY} x2="490" y2={boxY} stroke="url(#skinGrad)" strokeWidth="22" strokeLinecap="round" />
+      <polygon points="475,280 520,280 510,265 475,265" fill="#38bdf8" />
 
-      <g transform="translate(320, 420)">
-        <rect x="0" y="0" width="160" height="28" rx="6" fill="rgba(10,15,25,0.9)" stroke="#00f2fe" strokeWidth="1" />
+      {/* Knee joint highlight */}
+      <circle cx={leadKneeX} cy={leadKneeY} r="18" stroke={highlightColor} strokeWidth="3" fill="none" filter="url(#glowFilter)" />
+      <circle cx={leadKneeX} cy={leadKneeY} r="7" fill={highlightColor} />
+      <circle cx={leadKneeX} cy={leadKneeY} r="3" fill="#ffffff" />
+
+      <g transform={`translate(${leadKneeX - 70}, ${leadKneeY - 50})`}>
+        <rect x="0" y="0" width="145" height="28" rx="7" fill="rgba(10,15,25,0.92)" stroke={highlightColor} strokeWidth="1.2" />
+        <text x="72" y="18" fill="#ffffff" fontSize="10.5" fontWeight="700" textAnchor="middle">
+          {isHoldPhase ? '180° TERMINAL DRIVE' : `DRIVE: ${kneeAngle}°`}
+        </text>
+      </g>
+    </g>
+  );
+}
+
+// 7. Stationary Bike Ergometer Scene (Phase 2)
+function BikeScene({ progress, kneeAngle, highlightColor }: { progress: number; kneeAngle: number; highlightColor: string }) {
+  const crankAngle = progress * Math.PI * 2;
+  const crankX = 400 + Math.cos(crankAngle) * 38;
+  const crankY = 320 + Math.sin(crankAngle) * 38;
+  const hipX = 320;
+  const hipY = 220;
+  const kneeX = 380 + Math.sin(crankAngle) * 20;
+  const kneeY = 270 + Math.cos(crankAngle) * 15;
+
+  return (
+    <g>
+      {/* Bike Frame */}
+      <line x1="280" y1="380" x2="320" y2="230" stroke="#475569" strokeWidth="8" strokeLinecap="round" />
+      <line x1="320" y1="230" x2="400" y2="320" stroke="#0284c7" strokeWidth="12" strokeLinecap="round" />
+      <line x1="400" y1="320" x2="480" y2="200" stroke="#0284c7" strokeWidth="10" strokeLinecap="round" />
+      <line x1="480" y1="200" x2="480" y2="380" stroke="#475569" strokeWidth="8" strokeLinecap="round" />
+      <path d="M 460 190 L 510 190" stroke="#94a3b8" strokeWidth="8" strokeLinecap="round" />
+      {/* Saddle */}
+      <ellipse cx="320" cy="225" rx="26" ry="8" fill="#0f172a" />
+      {/* Flywheel / Crank */}
+      <circle cx="400" cy="320" r="44" stroke="#334155" strokeWidth="6" fill="#0f172a" />
+      <circle cx="400" cy="320" r="10" fill="#64748b" />
+      <line x1="400" y1="320" x2={crankX} y2={crankY} stroke="#94a3b8" strokeWidth="5" strokeLinecap="round" />
+      <circle cx={crankX} cy={crankY} r="6" fill="#38bdf8" />
+
+      {/* Rider Body */}
+      <circle cx="340" cy="130" r="22" fill="url(#skinGrad)" />
+      <line x1="335" y1="150" x2={hipX} y2={hipY} stroke="#0284c7" strokeWidth="32" strokeLinecap="round" />
+      {/* Arms holding handlebars */}
+      <path d={`M 350 170 L 430 185 L 490 190`} stroke="url(#skinGrad)" strokeWidth="12" strokeLinecap="round" fill="none" />
+
+      {/* Operative Leg pedaling */}
+      <line x1={hipX} y1={hipY} x2={kneeX} y2={kneeY} stroke="#1e293b" strokeWidth="28" strokeLinecap="round" />
+      <line x1={hipX} y1={hipY} x2={kneeX} y2={kneeY} stroke={highlightColor} strokeWidth="8" strokeLinecap="round" opacity="0.5" filter="url(#glowFilter)" />
+      <line x1={kneeX} y1={kneeY} x2={crankX} y2={crankY} stroke="url(#skinGrad)" strokeWidth="18" strokeLinecap="round" />
+
+      {/* Knee joint ring */}
+      <circle cx={kneeX} cy={kneeY} r="16" stroke={highlightColor} strokeWidth="3" fill="none" filter="url(#glowFilter)" />
+      <circle cx={kneeX} cy={kneeY} r="6" fill={highlightColor} />
+
+      <g transform={`translate(${kneeX - 60}, ${kneeY - 55})`}>
+        <rect x="0" y="0" width="135" height="28" rx="6" fill="rgba(10,15,25,0.92)" stroke={highlightColor} strokeWidth="1.2" />
+        <text x="67" y="18" fill="#ffffff" fontSize="10.5" fontWeight="700" textAnchor="middle">
+          CYCLING: {kneeAngle}°
+        </text>
+      </g>
+    </g>
+  );
+}
+
+// 8. Bulgarian Split Squat Scene (Phase 3)
+function BulgarianScene({ kneeAngle, highlightColor, isHoldPhase }: { kneeAngle: number; highlightColor: string; isHoldPhase: boolean }) {
+  const t = (180 - kneeAngle) / 90; // 0 to 1
+  const hipY = 240 + t * 50;
+  const frontKneeX = 470;
+  const frontKneeY = 320 + t * 15;
+  const frontAnkleX = 470;
+  const frontAnkleY = 380;
+
+  return (
+    <g>
+      {/* Bench on left */}
+      <rect x="150" y="270" width="130" height="110" rx="6" fill="#1e293b" stroke="#334155" strokeWidth="2" />
+      <text x="215" y="325" fill="#94a3b8" fontSize="11" fontWeight="700" textAnchor="middle">REAR BENCH</text>
+
+      {/* Rear foot elevated on bench */}
+      <path d={`M 380 ${hipY} L 280 ${hipY + 30} L 240 270`} stroke="#475569" strokeWidth="18" strokeLinecap="round" fill="none" opacity="0.6" />
+      <polygon points="230,270 255,270 250,255 230,255" fill="#64748b" opacity="0.6" />
+
+      {/* Upright Head & Torso */}
+      <circle cx="390" cy={hipY - 95} r="22" fill="url(#skinGrad)" />
+      <line x1="390" y1={hipY - 75} x2="390" y2={hipY} stroke="#0284c7" strokeWidth="34" strokeLinecap="round" />
+      <line x1="390" y1={hipY - 50} x2="420" y2={hipY - 10} stroke="url(#skinGrad)" strokeWidth="12" strokeLinecap="round" />
+
+      {/* Front operative leg descending */}
+      <line x1="390" y1={hipY} x2={frontKneeX} y2={frontKneeY} stroke="#1e293b" strokeWidth="30" strokeLinecap="round" />
+      <line x1="390" y1={hipY} x2={frontKneeX} y2={frontKneeY} stroke={highlightColor} strokeWidth="10" strokeLinecap="round" opacity="0.5" filter="url(#glowFilter)" />
+      <line x1={frontKneeX} y1={frontKneeY} x2={frontAnkleX} y2={frontAnkleY} stroke="url(#skinGrad)" strokeWidth="22" strokeLinecap="round" />
+      <polygon points="455,380 495,380 485,362 455,362" fill="#38bdf8" />
+
+      {/* Knee joint */}
+      <circle cx={frontKneeX} cy={frontKneeY} r="18" stroke={highlightColor} strokeWidth="3" fill="none" filter="url(#glowFilter)" />
+      <circle cx={frontKneeX} cy={frontKneeY} r="7" fill={highlightColor} />
+      <circle cx={frontKneeX} cy={frontKneeY} r="3" fill="#ffffff" />
+
+      {/* Vertical tracking plumbline */}
+      <line x1={frontKneeX} y1={frontKneeY} x2={frontAnkleX} y2={frontAnkleY} stroke="#00f2fe" strokeWidth="1.5" strokeDasharray="3 3" opacity="0.5" />
+
+      <g transform={`translate(${frontKneeX - 65}, ${frontKneeY - 55})`}>
+        <rect x="0" y="0" width="140" height="28" rx="6" fill="rgba(10,15,25,0.92)" stroke={highlightColor} strokeWidth="1.2" />
+        <text x="70" y="18" fill="#ffffff" fontSize="10.5" fontWeight="700" textAnchor="middle">
+          {isHoldPhase ? '90° WORKING DEPTH' : `KNEE DEPTH: ${kneeAngle}°`}
+        </text>
+      </g>
+    </g>
+  );
+}
+
+// 9. Box Jump Scene (Phase 3)
+function BoxJumpScene({ progress, kneeAngle, highlightColor, isHoldPhase }: { progress: number; kneeAngle: number; highlightColor: string; isHoldPhase: boolean }) {
+  const boxX = 490;
+  const boxY = 240;
+  const isLanded = progress >= 0.45;
+  const avatarX = isLanded ? 560 : 320;
+  const avatarY = isLanded ? boxY : 380;
+  const t = (180 - kneeAngle) / 90;
+  const hipY = avatarY - 80 - (isLanded ? (1 - t) * 40 : 0);
+
+  return (
+    <g>
+      {/* 12-inch Plyometric Box */}
+      <rect x={boxX} y={boxY} width="190" height="140" rx="8" fill="#1e293b" stroke="#00f2fe" strokeWidth="2" />
+      <text x={boxX + 95} y={boxY + 60} fill="#94a3b8" fontSize="13" fontWeight="800" textAnchor="middle">12" PLYO BOX</text>
+      <text x={boxX + 95} y={boxY + 80} fill="#00f2fe" fontSize="10" fontWeight="700" textAnchor="middle">SILENT IMPACT</text>
+
+      {/* Avatar */}
+      <circle cx={avatarX} cy={hipY - 75} r="20" fill="url(#skinGrad)" />
+      <line x1={avatarX} y1={hipY - 55} x2={avatarX} y2={hipY} stroke="#0284c7" strokeWidth="30" strokeLinecap="round" />
+      {/* Arms absorbing */}
+      <path d={`M ${avatarX} ${hipY - 45} L ${avatarX + 30} ${hipY - 20} L ${avatarX + 45} ${hipY - 40}`} stroke="url(#skinGrad)" strokeWidth="12" strokeLinecap="round" fill="none" />
+
+      {/* Operative Leg bending to absorb */}
+      <line x1={avatarX} y1={hipY} x2={avatarX - 25} y2={avatarY - 45} stroke="#1e293b" strokeWidth="26" strokeLinecap="round" />
+      <line x1={avatarX} y1={hipY} x2={avatarX - 25} y2={avatarY - 45} stroke={highlightColor} strokeWidth="8" strokeLinecap="round" opacity="0.5" filter="url(#glowFilter)" />
+      <line x1={avatarX - 25} y1={avatarY - 45} x2={avatarX - 10} y2={avatarY} stroke="url(#skinGrad)" strokeWidth="18" strokeLinecap="round" />
+      <circle cx={avatarX - 10} cy={avatarY} r="10" fill="#38bdf8" />
+
+      {/* Knee highlight */}
+      <circle cx={avatarX - 25} cy={avatarY - 45} r="18" stroke={highlightColor} strokeWidth="3" fill="none" filter="url(#glowFilter)" />
+      <circle cx={avatarX - 25} cy={avatarY - 45} r="6" fill={highlightColor} />
+
+      <g transform={`translate(${avatarX - 70}, ${avatarY - 110})`}>
+        <rect x="0" y="0" width="150" height="28" rx="6" fill="rgba(10,15,25,0.92)" stroke={highlightColor} strokeWidth="1.2" />
+        <text x="75" y="18" fill="#ffffff" fontSize="10.5" fontWeight="700" textAnchor="middle">
+          {isHoldPhase ? 'SOFT STICK: 90° HOLD' : `ABSORPTION: ${kneeAngle}°`}
+        </text>
+      </g>
+    </g>
+  );
+}
+
+// 10. Jogging Scene (Phase 3)
+function JoggingScene({ progress, kneeAngle, highlightColor }: { progress: number; kneeAngle: number; highlightColor: string }) {
+  const stride = Math.sin(progress * Math.PI * 2);
+  const hipX = 400;
+  const hipY = 220 + Math.abs(stride) * 12;
+  const leadKneeX = hipX + 35 + stride * 30;
+  const leadKneeY = 280 - Math.max(0, stride) * 35;
+  const trailKneeX = hipX - 35 - stride * 30;
+  const trailKneeY = 290 - Math.max(0, -stride) * 30;
+
+  return (
+    <g>
+      {/* Upright Running Avatar */}
+      <circle cx={hipX + 15} cy={hipY - 95} r="22" fill="url(#skinGrad)" />
+      <line x1={hipX + 10} y1={hipY - 75} x2={hipX} y2={hipY} stroke="#0284c7" strokeWidth="32" strokeLinecap="round" />
+
+      {/* Running Arms */}
+      <path d={`M ${hipX + 10} ${hipY - 55} L ${hipX + 45 - stride * 25} ${hipY - 35} L ${hipX + 60 - stride * 20} ${hipY - 55}`} stroke="url(#skinGrad)" strokeWidth="12" strokeLinecap="round" fill="none" />
+
+      {/* Trailing leg */}
+      <line x1={hipX} y1={hipY} x2={trailKneeX} y2={trailKneeY} stroke="#475569" strokeWidth="22" strokeLinecap="round" opacity="0.6" />
+      <line x1={trailKneeX} y1={trailKneeY} x2={trailKneeX - 25} y2="370" stroke="#475569" strokeWidth="16" strokeLinecap="round" opacity="0.6" />
+
+      {/* Lead operative leg high knee drive */}
+      <line x1={hipX} y1={hipY} x2={leadKneeX} y2={leadKneeY} stroke="#1e293b" strokeWidth="28" strokeLinecap="round" />
+      <line x1={hipX} y1={hipY} x2={leadKneeX} y2={leadKneeY} stroke={highlightColor} strokeWidth="10" strokeLinecap="round" opacity="0.5" filter="url(#glowFilter)" />
+      <line x1={leadKneeX} y1={leadKneeY} x2={leadKneeX + 10} y2="365" stroke="url(#skinGrad)" strokeWidth="20" strokeLinecap="round" />
+      <circle cx={leadKneeX + 10} cy="365" r="11" fill="#38bdf8" />
+
+      {/* Knee joint highlight */}
+      <circle cx={leadKneeX} cy={leadKneeY} r="18" stroke={highlightColor} strokeWidth="3" fill="none" filter="url(#glowFilter)" />
+      <circle cx={leadKneeX} cy={leadKneeY} r="7" fill={highlightColor} />
+
+      <g transform={`translate(${leadKneeX - 60}, ${leadKneeY - 55})`}>
+        <rect x="0" y="0" width="135" height="28" rx="6" fill="rgba(10,15,25,0.92)" stroke={highlightColor} strokeWidth="1.2" />
+        <text x="67" y="18" fill="#ffffff" fontSize="10.5" fontWeight="700" textAnchor="middle">
+          KNEE DRIVE: {kneeAngle}°
+        </text>
+      </g>
+    </g>
+  );
+}
+
+// 11. Cutting Scene (Phase 4)
+function CuttingScene({ progress, kneeAngle, highlightColor, isHoldPhase }: { progress: number; kneeAngle: number; highlightColor: string; isHoldPhase: boolean }) {
+  const coneX = 490;
+  const coneY = 380;
+  const hipX = 430;
+  const hipY = 240;
+  const plantKneeX = 480;
+  const plantKneeY = 310;
+
+  return (
+    <g>
+      {/* Agility Deceleration Cone */}
+      <polygon points={`${coneX - 20},${coneY} ${coneX},${coneY - 50} ${coneX + 20},${coneY}`} fill="#f97316" />
+      <line x1={coneX - 25} y1={coneY} x2={coneX + 25} y2={coneY} stroke="#ea580c" strokeWidth="4" />
+      <text x={coneX} y={coneY - 60} fill="#f97316" fontSize="11" fontWeight="800" textAnchor="middle">45° CONE</text>
+
+      {/* Dynamic 45° directional cut arrow */}
+      <line x1={coneX + 20} y1={coneY - 30} x2={coneX + 90} y2={coneY - 100} stroke="#00f2fe" strokeWidth="4" strokeDasharray="6 4" />
+      <polygon points={`${coneX + 90},${coneY - 110} ${coneX + 75},${coneY - 95} ${coneX + 95},${coneY - 90}`} fill="#00f2fe" />
+      <text x={coneX + 105} y={coneY - 100} fill="#00f2fe" fontSize="12" fontWeight="800">45° PUSH</text>
+
+      {/* Athletic low-body posture */}
+      <circle cx={hipX - 10} cy={hipY - 80} r="22" fill="url(#skinGrad)" />
+      <line x1={hipX - 10} y1={hipY - 60} x2={hipX} y2={hipY} stroke="#0284c7" strokeWidth="32" strokeLinecap="round" />
+
+      {/* Plant leg (operative) wide base */}
+      <line x1={hipX} y1={hipY} x2={plantKneeX} y2={plantKneeY} stroke="#1e293b" strokeWidth="30" strokeLinecap="round" />
+      <line x1={hipX} y1={hipY} x2={plantKneeX} y2={plantKneeY} stroke={highlightColor} strokeWidth="10" strokeLinecap="round" opacity="0.5" filter="url(#glowFilter)" />
+      <line x1={plantKneeX} y1={plantKneeY} x2={coneX - 10} y2={coneY} stroke="url(#skinGrad)" strokeWidth="22" strokeLinecap="round" />
+      <polygon points={`${coneX - 25},${coneY} ${coneX + 10},${coneY} ${coneX},${coneY - 16} ${coneX - 25},${coneY - 16}`} fill="#38bdf8" />
+
+      {/* Knee joint highlight */}
+      <circle cx={plantKneeX} cy={plantKneeY} r="18" stroke={highlightColor} strokeWidth="3" fill="none" filter="url(#glowFilter)" />
+      <circle cx={plantKneeX} cy={plantKneeY} r="7" fill={highlightColor} />
+
+      <g transform={`translate(${plantKneeX - 75}, ${plantKneeY - 60})`}>
+        <rect x="0" y="0" width="160" height="28" rx="6" fill="rgba(10,15,25,0.92)" stroke={highlightColor} strokeWidth="1.2" />
         <text x="80" y="18" fill="#ffffff" fontSize="10.5" fontWeight="700" textAnchor="middle">
-          {exerciseName}
+          {isHoldPhase ? 'ZERO VALGUS (50° FLEX)' : `PLANT: ${kneeAngle}°`}
+        </text>
+      </g>
+    </g>
+  );
+}
+
+// 12. Skater Bounding Scene (Phase 4)
+function SkaterScene({ progress, kneeAngle, highlightColor, isHoldPhase }: { progress: number; kneeAngle: number; highlightColor: string; isHoldPhase: boolean }) {
+  const isLanded = progress >= 0.45;
+  const avatarX = isLanded ? 480 : 310;
+  const hipY = 240;
+  const plantKneeX = avatarX + (isLanded ? 20 : -20);
+  const plantKneeY = 320;
+  const footX = plantKneeX;
+  const footY = 380;
+
+  return (
+    <g>
+      {/* Turf distance marks */}
+      <line x1="280" y1="380" x2="280" y2="395" stroke="#475569" strokeWidth="3" />
+      <line x1="520" y1="380" x2="520" y2="395" stroke="#00f2fe" strokeWidth="3" />
+      <text x="400" y="420" fill="#94a3b8" fontSize="12" fontWeight="700" textAnchor="middle">LATERAL TURF BOUND (2M)</text>
+
+      {/* Lateral Bound flight arc */}
+      <path d="M 310 260 Q 400 180 480 260" stroke="#00f2fe" strokeWidth="2.5" strokeDasharray="5 5" fill="none" opacity="0.6" />
+
+      {/* Athletic landing avatar */}
+      <circle cx={avatarX} cy={hipY - 80} r="22" fill="url(#skinGrad)" />
+      <line x1={avatarX} y1={hipY - 60} x2={avatarX} y2={hipY} stroke="#0284c7" strokeWidth="32" strokeLinecap="round" />
+      {/* Counterbalance arms */}
+      <path d={`M ${avatarX} ${hipY - 45} L ${avatarX - 45} ${hipY - 20} L ${avatarX - 60} ${hipY - 45}`} stroke="url(#skinGrad)" strokeWidth="12" strokeLinecap="round" fill="none" />
+
+      {/* Floating non-landing leg in back */}
+      <path d={`M ${avatarX} ${hipY} L ${avatarX - 50} ${hipY + 30} L ${avatarX - 70} ${hipY + 70}`} stroke="#475569" strokeWidth="18" strokeLinecap="round" fill="none" opacity="0.5" />
+
+      {/* Stance operative leg sticking the landing */}
+      <line x1={avatarX} y1={hipY} x2={plantKneeX} y2={plantKneeY} stroke="#1e293b" strokeWidth="30" strokeLinecap="round" />
+      <line x1={avatarX} y1={hipY} x2={plantKneeX} y2={plantKneeY} stroke={highlightColor} strokeWidth="10" strokeLinecap="round" opacity="0.5" filter="url(#glowFilter)" />
+      <line x1={plantKneeX} y1={plantKneeY} x2={footX} y2={footY} stroke="url(#skinGrad)" strokeWidth="22" strokeLinecap="round" />
+      <polygon points={`${footX - 15},${footY} ${footX + 25},${footY} ${footX + 15},${footY - 16} ${footX - 15},${footY - 16}`} fill="#38bdf8" />
+
+      {/* Knee joint highlight */}
+      <circle cx={plantKneeX} cy={plantKneeY} r="18" stroke={highlightColor} strokeWidth="3" fill="none" filter="url(#glowFilter)" />
+      <circle cx={plantKneeX} cy={plantKneeY} r="7" fill={highlightColor} />
+
+      <g transform={`translate(${plantKneeX - 75}, ${plantKneeY - 60})`}>
+        <rect x="0" y="0" width="155" height="28" rx="6" fill="rgba(10,15,25,0.92)" stroke={highlightColor} strokeWidth="1.2" />
+        <text x="77" y="18" fill="#ffffff" fontSize="10.5" fontWeight="700" textAnchor="middle">
+          {isHoldPhase ? 'SOLID STICK (60° STABLE)' : `STICK: ${kneeAngle}°`}
         </text>
       </g>
     </g>

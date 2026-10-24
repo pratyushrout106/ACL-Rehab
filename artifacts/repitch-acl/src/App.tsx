@@ -1160,7 +1160,21 @@ function App() {
 
   const latest = patient.checkins[0];
   const flags = patient.checkins.filter((entry) => entry.pain >= 5 || entry.swelling === 'Severe' || entry.swelling === 'Moderate');
-  const targetAngle = exercise.id.includes('quad') ? 180 : exercise.id.includes('raise') ? 135 : exercise.id.includes('heel') ? 110 : null;
+  const exKey = `${exercise.id} ${exercise.name}`.toLowerCase();
+  const targetAngle = 
+    exKey.includes('quad') ? 180 :
+    exKey.includes('raise') ? 135 :
+    exKey.includes('heel') ? 110 :
+    exKey.includes('patell') ? 180 :
+    exKey.includes('wall') ? 60 :
+    exKey.includes('step') ? 180 :
+    exKey.includes('bike') ? 110 :
+    exKey.includes('bulgarian') ? 90 :
+    exKey.includes('box') ? 90 :
+    exKey.includes('jog') ? 90 :
+    exKey.includes('cut') ? 50 :
+    exKey.includes('skater') ? 60 :
+    180;
   const remainingSeconds = modal === 'guided' && step === exercise.cues.length - 1 ? Math.max(0, exercise.seconds - seconds) : seconds;
   const formattedTimer = `${String(Math.floor(remainingSeconds / 60)).padStart(2, '0')}:${String(remainingSeconds % 60).padStart(2, '0')}`;
 
@@ -1620,7 +1634,7 @@ function App() {
                 }}
               >
                 {/* Left Column: Camera Stage, Pose Telemetry & Controls */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {stream ? (
                     <>
                       <div className="camera-stage">
@@ -1629,26 +1643,124 @@ function App() {
                           <canvas ref={poseCanvasRef} className="pose-canvas" style={{ transform: 'none' }} aria-hidden="true"/>
                           <div className="alignment-frame" style={{ borderColor: legColor, boxShadow: `0 0 35px ${legColor}33` }}/>
                         </div>
+
+                        {/* Top Left: Tracking Info Badge */}
+                        <div style={{
+                          position: 'absolute',
+                          top: 10,
+                          left: 10,
+                          background: 'rgba(10, 15, 25, 0.88)',
+                          backdropFilter: 'blur(8px)',
+                          border: '1px solid rgba(255,255,255,0.15)',
+                          borderRadius: 8,
+                          padding: '5px 10px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 1,
+                          zIndex: 10
+                        }}>
+                          <span style={{ fontSize: 10.5, fontWeight: 800, color: '#ffffff', letterSpacing: '0.03em', textTransform: 'uppercase' }}>
+                            {exercise.name}
+                          </span>
+                          <span style={{ fontSize: 9, fontWeight: 700, color: legColor, textTransform: 'uppercase' }}>
+                            TARGET: {selectedLeg.toUpperCase()} LEG {patient.affectedLeg === selectedLeg ? '(OPERATIVE)' : ''}
+                          </span>
+                        </div>
+
+                        {/* Prominent Real-Time Knee Angle HUD directly on camera */}
+                        <div style={{
+                          position: 'absolute',
+                          bottom: 12,
+                          left: 12,
+                          background: 'rgba(8, 12, 22, 0.94)',
+                          backdropFilter: 'blur(10px)',
+                          border: `2px solid ${legColor}`,
+                          boxShadow: `0 0 24px ${legColor}55`,
+                          borderRadius: 12,
+                          padding: '8px 14px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 12,
+                          zIndex: 10
+                        }}>
+                          <Activity size={24} color={legColor} />
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                              <span style={{ fontSize: 32, fontWeight: 900, fontFamily: 'monospace', color: legColor, lineHeight: 1 }}>
+                                {poseState.angle !== null ? `${poseState.angle}°` : '—'}
+                              </span>
+                              <span style={{ fontSize: 10.5, fontWeight: 800, color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                {poseState.measure || 'ESTIMATED KNEE ANGLE'}
+                              </span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
+                              <span style={{ fontSize: 10.5, color: '#94a3b8' }}>
+                                Target: <strong style={{ color: '#ffffff' }}>{targetAngle !== null ? `${targetAngle}°` : '180°'}</strong>
+                              </span>
+                              {targetAngle !== null && poseState.angle !== null && (
+                                <span style={{
+                                  fontSize: 10,
+                                  fontWeight: 800,
+                                  color: Math.abs(poseState.angle - targetAngle) <= 5 ? '#10b981' : '#f59e0b',
+                                  background: Math.abs(poseState.angle - targetAngle) <= 5 ? 'rgba(16,185,129,0.2)' : 'rgba(245,158,11,0.2)',
+                                  padding: '1px 6px',
+                                  borderRadius: 4
+                                }}>
+                                  {Math.abs(poseState.angle - targetAngle) <= 5 ? '✓ ON TARGET' : `Δ ${Math.abs(poseState.angle - targetAngle)}°`}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
                       </div>
 
-                      <div className={`pose-readout ${poseState.status === 'error' ? 'pose-error' : ''}`} role="status">
-                        <div>
-                          <span className={`pose-dot ${poseState.status}`}/>
-                          <strong>
-                            {poseState.status === 'loading' ? 'Loading pose model' : poseState.status === 'error' ? 'Pose estimate unavailable' : poseState.status === 'searching' ? 'Looking for pose' : 'On-device pose estimate'}
-                          </strong>
-                        </div>
-                        <p>{poseState.message}</p>
-                        {poseState.angle !== null && (
-                          <span className="mono pose-angle">
-                            {poseState.angle}° <small>{poseState.measure}</small>
+                      {/* Compact Bottom Bar: Status Indicator & Action Buttons */}
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 10,
+                        flexWrap: 'wrap',
+                        padding: '10px 14px',
+                        background: 'var(--bg-card-subtle)',
+                        border: '1px solid var(--border-card)',
+                        borderRadius: 12,
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span className={`pose-dot ${poseState.status}`} style={{ width: 8, height: 8 }} />
+                          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>
+                            {poseState.status === 'loading' ? 'Loading model...' :
+                             poseState.status === 'error' ? 'Pose unavailable' :
+                             poseState.status === 'searching' ? 'Searching for joint landmarks...' :
+                             '100% On-Device Pose Tracking Active'}
                           </span>
-                        )}
-                        {targetAngle !== null && (
-                          <p className="pose-reference">
-                            Plan reference: <strong>{targetAngle}°</strong>. {poseState.angle === null ? 'Compare from a clear lateral view.' : `Current estimate differs by ${Math.abs(poseState.angle - targetAngle)}°.`}
-                          </p>
-                        )}
+                        </div>
+
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                          <button 
+                            className={`btn ${recording ? 'btn-danger' : 'btn-primary'}`} 
+                            style={{ padding: '6px 14px', fontSize: 12 }} 
+                            onClick={recording ? stopRecording : recordVideo}
+                          >
+                            {recording ? (
+                              <>
+                                <span className="tag" style={{ background: '#51232a', color: '#ffb3b3' }}>REC {formattedTimer}</span>
+                                Stop & Save
+                              </>
+                            ) : (
+                              <>
+                                <Video size={14}/> Record Clip (max 30s)
+                              </>
+                            )}
+                          </button>
+                          <button 
+                            className="btn btn-quiet" 
+                            style={{ padding: '6px 14px', fontSize: 12 }} 
+                            onClick={() => { closeModal(); launchGuided(exercise); }}
+                          >
+                            <Play size={14}/> Guided Set
+                          </button>
+                        </div>
                       </div>
                     </>
                   ) : (
@@ -1669,26 +1781,6 @@ function App() {
                       <span>{cameraError}</span>
                     </div>
                   )}
-
-                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                    {stream && (
-                      <button className={`btn ${recording ? 'btn-danger' : 'btn-primary'}`} onClick={recording ? stopRecording : recordVideo}>
-                        {recording ? (
-                          <>
-                            <span className="tag" style={{ background: '#51232a', color: '#ffb3b3' }}>REC {formattedTimer}</span>
-                            Stop and save clip
-                          </>
-                        ) : (
-                          <>
-                            <Video size={16}/> Record local clip · max 30s
-                          </>
-                        )}
-                      </button>
-                    )}
-                    <button className="btn btn-quiet" onClick={() => { closeModal(); launchGuided(exercise); }}>
-                      <Play size={15}/> Use guided set
-                    </button>
-                  </div>
                 </div>
 
                 {/* Right Column: Character Demo Guide Side-by-Side */}

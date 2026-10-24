@@ -1321,6 +1321,7 @@ button:disabled {
   width: min(1280px, 96vw);
   max-width: 1280px;
   max-height: 94dvh;
+  padding: 20px 24px;
 }
 
 .camera-split-container {
@@ -1400,12 +1401,13 @@ button:disabled {
   overflow: hidden;
   border: 1px solid var(--border-card);
   background: #000000;
+  max-height: 380px;
 }
 
 .camera-view {
   width: 100%;
   height: auto;
-  max-height: 520px;
+  max-height: 380px;
   object-fit: contain;
   display: block;
 }
