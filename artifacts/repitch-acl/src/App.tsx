@@ -38,6 +38,7 @@ import {
   Zap
 } from 'lucide-react';
 import { useTheme } from './lib/theme';
+import { ExerciseCharacterDemo } from './components/ExerciseCharacterDemo';
 import { RECOVERY_MASTERPLAN, type PhasePlan } from './data/recoveryMasterplan';
 import { INITIAL_PATIENTS, type Patient, type Exercise, type Swelling, type Entry, type Session } from './data/defaultPatients';
 
@@ -348,6 +349,12 @@ function App() {
   const legColorRef = useRef<string>(legColor);
   legColorRef.current = legColor;
 
+  // Exercise Demo Character states
+  const [showDemoInCamera, setShowDemoInCamera] = useState(true);
+  const [demoModal, setDemoModal] = useState<{ open: boolean; ex: Exercise | null }>({ open: false, ex: null });
+  const smoothedLandmarksRef = useRef<NormalizedLandmark[] | null>(null);
+  const currentAngleRef = useRef<number | null>(null);
+
   // Mascot Roo coaching state
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [guidedSpeech, setGuidedSpeech] = useState<string>(ROO_LINES.greetings[0]);
@@ -469,13 +476,13 @@ function App() {
         const files = await FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.1.1/wasm');
         const options = {
           baseOptions: {
-            modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
+            modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task',
           },
           runningMode: 'VIDEO',
           numPoses: 1,
-          minPoseDetectionConfidence: 0.55,
-          minPosePresenceConfidence: 0.5,
-          minTrackingConfidence: 0.5,
+          minPoseDetectionConfidence: 0.3,
+          minPosePresenceConfidence: 0.3,
+          minTrackingConfidence: 0.3,
         } as const;
         let landmarker: PoseLandmarker;
         try {
@@ -490,6 +497,7 @@ function App() {
         poseLandmarkerRef.current = landmarker;
         setPoseState({ status: 'searching', angle: null, measure: 'joint angle', message: 'Position your working leg in view.' });
 
+        // Draw pose on canvas (runs at smooth 60 FPS)
         const drawPose = (landmarks: NormalizedLandmark[] | undefined, activeAngle: number | null, now: number) => {
           const canvas = poseCanvasRef.current;
           const video = videoRef.current;
@@ -503,7 +511,7 @@ function App() {
           const ctx = canvas.getContext('2d');
           if (!ctx) return;
 
-          // 1. Draw mirrored video frame directly onto canvas
+          // 1. Draw mirrored camera video frame
           ctx.save();
           ctx.translate(width, 0);
           ctx.scale(-1, 1);
@@ -512,33 +520,30 @@ function App() {
 
           const isLeft = selectedLegRef.current === 'left';
           const chosenColor = legColorRef.current;
-          const otherColor = 'rgba(148, 163, 184, 0.4)';
+          const otherColor = 'rgba(148, 163, 184, 0.45)';
           const upperBodyColor = 'rgba(56, 189, 248, 0.35)';
 
-          // Helper to map normalized landmark to mirrored canvas coordinates
+          // Map normalized landmark point to mirrored canvas pixels
           const toCanvas = (p?: NormalizedLandmark) => {
             if (!p) return null;
-            return { x: (1 - p.x) * width, y: p.y * height, vis: p.visibility ?? 0 };
+            return { x: (1 - p.x) * width, y: p.y * height, vis: p.visibility ?? 1 };
           };
 
           // 2. Broadcast Telemetry HUD Banner (Top Left)
           ctx.save();
-          ctx.fillStyle = 'rgba(10, 15, 25, 0.82)';
+          ctx.fillStyle = 'rgba(10, 15, 25, 0.85)';
+          const bannerW = Math.min(380, width - 32);
           if (typeof ctx.roundRect === 'function') {
             ctx.beginPath();
-            ctx.roundRect(16, 16, Math.min(380, width - 32), 48, 10);
+            ctx.roundRect(16, 16, bannerW, 48, 10);
             ctx.fill();
-          } else {
-            ctx.fillRect(16, 16, Math.min(380, width - 32), 48);
-          }
-          ctx.strokeStyle = chosenColor;
-          ctx.lineWidth = 1.5;
-          if (typeof ctx.roundRect === 'function') {
-            ctx.beginPath();
-            ctx.roundRect(16, 16, Math.min(380, width - 32), 48, 10);
+            ctx.strokeStyle = chosenColor;
+            ctx.lineWidth = 1.5;
             ctx.stroke();
           } else {
-            ctx.strokeRect(16, 16, Math.min(380, width - 32), 48);
+            ctx.fillRect(16, 16, bannerW, 48);
+            ctx.strokeStyle = chosenColor;
+            ctx.strokeRect(16, 16, bannerW, 48);
           }
 
           ctx.fillStyle = '#ffffff';
@@ -567,27 +572,41 @@ function App() {
           }
           ctx.restore();
 
-          if (!landmarks) return;
+          if (!landmarks || landmarks.length < 33) return;
 
-          // 3. Upper body connections (subtle wireframe)
-          const upperConns: [number, number][] = [
-            [11, 12], [11, 13], [13, 15], [12, 14], [14, 16],
-            [11, 23], [12, 24], [23, 24]
-          ];
-          ctx.save();
-          ctx.lineWidth = Math.max(2, width / 240);
-          ctx.strokeStyle = upperBodyColor;
-          for (const [from, to] of upperConns) {
-            const a = toCanvas(landmarks[from]);
-            const b = toCanvas(landmarks[to]);
-            if (a && b && a.vis >= 0.35 && b.vis >= 0.35) {
+          // Helper to safely draw a connection line between two landmark indices
+          const drawBone = (idx1: number, idx2: number, color: string, lineWidth: number, glow = false) => {
+            const a = toCanvas(landmarks[idx1]);
+            const b = toCanvas(landmarks[idx2]);
+            if (!a || !b) return;
+            // Draw if points exist within a reasonable bounding area
+            if (a.x >= -40 && a.x <= width + 40 && b.x >= -40 && b.x <= width + 40) {
+              ctx.save();
+              const alpha = Math.max(0.4, Math.min(1, (a.vis + b.vis) / 2));
+              ctx.globalAlpha = alpha;
+              if (glow) {
+                ctx.shadowColor = color;
+                ctx.shadowBlur = 12;
+              }
+              ctx.strokeStyle = color;
+              ctx.lineWidth = lineWidth;
+              ctx.lineCap = 'round';
               ctx.beginPath();
               ctx.moveTo(a.x, a.y);
               ctx.lineTo(b.x, b.y);
               ctx.stroke();
+              ctx.restore();
             }
+          };
+
+          // 3. Draw Upper Body Connections (Wireframe)
+          const upperBones: [number, number][] = [
+            [11, 12], [11, 13], [13, 15], [12, 14], [14, 16],
+            [11, 23], [12, 24], [23, 24]
+          ];
+          for (const [from, to] of upperBones) {
+            drawBone(from, to, upperBodyColor, Math.max(2, width / 240));
           }
-          ctx.restore();
 
           // 4. Non-chosen Leg (Healthy leg in subtle dimmed slate)
           const otherHip = isLeft ? 24 : 23;
@@ -596,33 +615,19 @@ function App() {
           const otherHeel = isLeft ? 30 : 29;
           const otherFoot = isLeft ? 32 : 31;
 
-          ctx.save();
-          ctx.lineWidth = Math.max(2.5, width / 180);
-          ctx.strokeStyle = otherColor;
-          const otherBones: [number, number][] = [
-            [otherHip, otherKnee],
-            [otherKnee, otherAnkle],
-            [otherAnkle, otherHeel],
-            [otherHeel, otherFoot]
-          ];
-          for (const [from, to] of otherBones) {
-            const a = toCanvas(landmarks[from]);
-            const b = toCanvas(landmarks[to]);
-            if (a && b && a.vis >= 0.35 && b.vis >= 0.35) {
-              ctx.beginPath();
-              ctx.moveTo(a.x, a.y);
-              ctx.lineTo(b.x, b.y);
-              ctx.stroke();
-            }
-          }
+          drawBone(otherHip, otherKnee, otherColor, Math.max(2.5, width / 180));
+          drawBone(otherKnee, otherAnkle, otherColor, Math.max(2.5, width / 180));
+          drawBone(otherAnkle, otherHeel, otherColor, Math.max(2, width / 200));
+          drawBone(otherHeel, otherFoot, otherColor, Math.max(2, width / 200));
+          drawBone(otherAnkle, otherFoot, otherColor, Math.max(2, width / 200));
+
           const otherKneePt = toCanvas(landmarks[otherKnee]);
-          if (otherKneePt && otherKneePt.vis >= 0.35) {
+          if (otherKneePt) {
             ctx.fillStyle = otherColor;
             ctx.beginPath();
             ctx.arc(otherKneePt.x, otherKneePt.y, 4, 0, Math.PI * 2);
             ctx.fill();
           }
-          ctx.restore();
 
           // 5. Chosen (Operative) Leg in Chosen Highlight Color!
           const chosenHip = isLeft ? 23 : 24;
@@ -634,49 +639,18 @@ function App() {
           const hipPt = toCanvas(landmarks[chosenHip]);
           const kneePt = toCanvas(landmarks[chosenKnee]);
           const anklePt = toCanvas(landmarks[chosenAnkle]);
-          const heelPt = toCanvas(landmarks[chosenHeel]);
-          const footPt = toCanvas(landmarks[chosenFoot]);
 
-          ctx.save();
-          ctx.shadowColor = chosenColor;
-          ctx.shadowBlur = 12;
-          ctx.strokeStyle = chosenColor;
-          ctx.lineWidth = Math.max(4.5, width / 110);
-          ctx.lineCap = 'round';
-
-          // Femur (Hip -> Knee)
-          if (hipPt && kneePt && hipPt.vis >= 0.35 && kneePt.vis >= 0.35) {
-            ctx.beginPath();
-            ctx.moveTo(hipPt.x, hipPt.y);
-            ctx.lineTo(kneePt.x, kneePt.y);
-            ctx.stroke();
-          }
-          // Tibia (Knee -> Ankle)
-          if (kneePt && anklePt && kneePt.vis >= 0.35 && anklePt.vis >= 0.35) {
-            ctx.beginPath();
-            ctx.moveTo(kneePt.x, kneePt.y);
-            ctx.lineTo(anklePt.x, anklePt.y);
-            ctx.stroke();
-          }
-          // Foot
-          if (anklePt && heelPt && anklePt.vis >= 0.35 && heelPt.vis >= 0.35) {
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            ctx.moveTo(anklePt.x, anklePt.y);
-            ctx.lineTo(heelPt.x, heelPt.y);
-            ctx.stroke();
-          }
-          if (heelPt && footPt && heelPt.vis >= 0.35 && footPt.vis >= 0.35) {
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            ctx.moveTo(heelPt.x, heelPt.y);
-            ctx.lineTo(footPt.x, footPt.y);
-            ctx.stroke();
-          }
-          ctx.restore();
+          // Femur (Hip -> Knee) with neon glow
+          drawBone(chosenHip, chosenKnee, chosenColor, Math.max(4.5, width / 110), true);
+          // Tibia (Knee -> Ankle) with neon glow
+          drawBone(chosenKnee, chosenAnkle, chosenColor, Math.max(4.5, width / 110), true);
+          // Foot bones
+          drawBone(chosenAnkle, chosenHeel, chosenColor, 3, false);
+          drawBone(chosenHeel, chosenFoot, chosenColor, 3, false);
+          drawBone(chosenAnkle, chosenFoot, chosenColor, 3, false);
 
           // 6. KNEE JOINT HIGHLIGHT TAILORED FOR ACL REHABILITATION
-          if (kneePt && kneePt.vis >= 0.35) {
+          if (kneePt) {
             const kx = kneePt.x;
             const ky = kneePt.y;
             const pulse = Math.sin(now / 150) * 4;
@@ -687,7 +661,7 @@ function App() {
 
             // Outer Pulsing Target Ring
             ctx.strokeStyle = chosenColor;
-            ctx.lineWidth = 2.2;
+            ctx.lineWidth = 2.4;
             ctx.beginPath();
             ctx.arc(kx, ky, 22 + pulse, 0, Math.PI * 2);
             ctx.stroke();
@@ -774,7 +748,7 @@ function App() {
             const pillW = 168;
             const pillH = statusText ? 44 : 28;
 
-            ctx.fillStyle = 'rgba(10, 15, 25, 0.88)';
+            ctx.fillStyle = 'rgba(10, 15, 25, 0.9)';
             if (typeof ctx.roundRect === 'function') {
               ctx.beginPath();
               ctx.roundRect(pillX, pillY, pillW, pillH, 8);
@@ -809,60 +783,99 @@ function App() {
           }
         };
 
-        const detect = (now: number) => {
+        let isDetecting = false;
+
+        // 60 FPS Render & Tracking loop
+        const detectLoop = (now: number) => {
           if (stopped) return;
           const video = videoRef.current;
-          if (video && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && now - lastInference >= 80) {
-            lastInference = now;
-            const result = landmarker.detectForVideo(video, now);
-            const landmarks = result.landmarks[0];
+          if (video && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+            // Draw on canvas every frame (smooth 60 FPS)
+            drawPose(smoothedLandmarksRef.current || undefined, currentAngleRef.current, now);
 
-            let angle: number | null = null;
-            let measure = exercise.id.includes('raise') ? 'estimated hip angle' : 'estimated knee angle';
-            const isLeft = selectedLegRef.current === 'left';
+            // Run detection non-blocking
+            if (!isDetecting && now - lastInference >= 65) {
+              isDetecting = true;
+              lastInference = now;
+              try {
+                const result = landmarker.detectForVideo(video, now);
+                const rawLandmarks = result.landmarks[0];
 
-            if (landmarks) {
-              if (exercise.id.includes('raise')) {
-                // Straight leg raise tracks hip flexion (shoulder, hip, knee)
-                const hipCandidates = isLeft ? [11, 23, 25] : [12, 24, 26];
-                const p1 = landmarks[hipCandidates[0]];
-                const p2 = landmarks[hipCandidates[1]];
-                const p3 = landmarks[hipCandidates[2]];
-                if ((p1?.visibility ?? 0) >= 0.35 && (p2?.visibility ?? 0) >= 0.35 && (p3?.visibility ?? 0) >= 0.35) {
-                  angle = angleAt(p1, p2, p3);
+                if (rawLandmarks && rawLandmarks.length >= 33) {
+                  // Exponential Moving Average (EMA) smoothing to eliminate line jitter
+                  if (!smoothedLandmarksRef.current || smoothedLandmarksRef.current.length !== rawLandmarks.length) {
+                    smoothedLandmarksRef.current = rawLandmarks.map((p) => ({ ...p }));
+                  } else {
+                    for (let i = 0; i < rawLandmarks.length; i++) {
+                      const cur = rawLandmarks[i];
+                      const prev = smoothedLandmarksRef.current[i];
+                      prev.x = prev.x * 0.25 + cur.x * 0.75;
+                      prev.y = prev.y * 0.25 + cur.y * 0.75;
+                      prev.z = (prev.z ?? 0) * 0.25 + (cur.z ?? 0) * 0.75;
+                      prev.visibility = cur.visibility ?? 1;
+                    }
+                  }
+
+                  // Compute joint angle for selected operative leg
+                  const isLeft = selectedLegRef.current === 'left';
+                  let angle: number | null = null;
+                  let measure = exercise.id.includes('raise') ? 'estimated hip angle' : 'estimated knee angle';
+
+                  if (exercise.id.includes('raise')) {
+                    const hipCandidates = isLeft ? [11, 23, 25] : [12, 24, 26];
+                    const p1 = smoothedLandmarksRef.current[hipCandidates[0]];
+                    const p2 = smoothedLandmarksRef.current[hipCandidates[1]];
+                    const p3 = smoothedLandmarksRef.current[hipCandidates[2]];
+                    if (p1 && p2 && p3) {
+                      angle = angleAt(p1, p2, p3);
+                    }
+                  } else if (!exercise.id.includes('patella')) {
+                    const kneeCandidates = isLeft ? [23, 25, 27] : [24, 26, 28];
+                    const p1 = smoothedLandmarksRef.current[kneeCandidates[0]];
+                    const p2 = smoothedLandmarksRef.current[kneeCandidates[1]];
+                    const p3 = smoothedLandmarksRef.current[kneeCandidates[2]];
+                    if (p1 && p2 && p3) {
+                      angle = angleAt(p1, p2, p3);
+                    }
+                  }
+
+                  currentAngleRef.current = angle;
+
+                  if (recordingRef.current && now - lastTelemetryAtRef.current >= 500) {
+                    lastTelemetryAtRef.current = now;
+                    telemetryRef.current.push({ t: Math.round((now - recordingStartedAtRef.current) / 100) / 10, angle, measure });
+                  }
+
+                  if (now - lastUiUpdate >= 250) {
+                    lastUiUpdate = now;
+                    setPoseState({
+                      status: 'tracking',
+                      angle: exercise.id.includes('patella') ? null : angle,
+                      measure,
+                      message: 'Live on-device 2D kinematic tracking.'
+                    });
+                  }
+                } else {
+                  if (now - lastUiUpdate >= 500) {
+                    lastUiUpdate = now;
+                    setPoseState({
+                      status: 'searching',
+                      angle: null,
+                      measure: 'joint angle',
+                      message: 'Looking for full body pose in view.'
+                    });
+                  }
                 }
-              } else if (!exercise.id.includes('patella')) {
-                // Quad sets, Heel slides track knee angle of chosen leg (hip, knee, ankle)
-                const kneeCandidates = isLeft ? [23, 25, 27] : [24, 26, 28];
-                const p1 = landmarks[kneeCandidates[0]];
-                const p2 = landmarks[kneeCandidates[1]];
-                const p3 = landmarks[kneeCandidates[2]];
-                if ((p1?.visibility ?? 0) >= 0.35 && (p2?.visibility ?? 0) >= 0.35 && (p3?.visibility ?? 0) >= 0.35) {
-                  angle = angleAt(p1, p2, p3);
-                }
+              } catch (err) {
+                console.warn('Inference error:', err);
+              } finally {
+                isDetecting = false;
               }
             }
-
-            drawPose(landmarks, angle, now);
-
-            if (exercise.id.includes('patella')) angle = null;
-            const message = !landmarks
-              ? 'No pose detected. Adjust lighting or include your leg in frame.'
-              : angle === null
-                ? `Pose found; ensure full working ${isLeft ? 'left' : 'right'} leg is in view.`
-                : 'Live on-device 2D kinematic estimate.';
-            if (recordingRef.current && now - lastTelemetryAtRef.current >= 500) {
-              lastTelemetryAtRef.current = now;
-              telemetryRef.current.push({ t: Math.round((now - recordingStartedAtRef.current) / 100) / 10, angle, measure });
-            }
-            if (now - lastUiUpdate >= 250) {
-              lastUiUpdate = now;
-              setPoseState({ status: landmarks ? 'tracking' : 'searching', angle: exercise.id.includes('patella') ? null : angle, measure, message });
-            }
           }
-          frame = window.requestAnimationFrame(detect);
+          frame = window.requestAnimationFrame(detectLoop);
         };
-        frame = window.requestAnimationFrame(detect);
+        frame = window.requestAnimationFrame(detectLoop);
       } catch (error) {
         if (!stopped) {
           setPoseState({
@@ -1246,6 +1259,7 @@ function App() {
                 sleep={sleep} setSleep={setSleep}
                 saveCheckin={saveCheckin} saved={saved}
                 launchGuided={launchGuided} startCamera={startCamera}
+                openDemo={(ex) => setDemoModal({ open: true, ex })}
                 videoUrl={videoUrl} videoMeta={videoMeta}
               />
             ) : (
@@ -1268,6 +1282,7 @@ function App() {
             openAddExercise={openAddExercise}
             openEditExercise={openEditExercise}
             deleteExercise={deleteExercise}
+            openDemo={(ex) => setDemoModal({ open: true, ex })}
             updatePatientNotes={(notes) => updateCurrentPatient((p) => ({ ...p, clinicianNotes: notes }))}
           />
         )}
@@ -1332,6 +1347,19 @@ function App() {
                           {soundEnabled ? <Volume2 size={13} style={{ color: 'var(--accent-emerald)' }} /> : <VolumeX size={13} />}
                           <span>Roo voice: {soundEnabled ? 'ON' : 'MUTED'}</span>
                         </button>
+                      </div>
+
+                      {/* Animated Character Demonstration for this exercise */}
+                      <div style={{ margin: '14px 0 16px' }}>
+                        <ExerciseCharacterDemo
+                          exerciseId={exercise.id}
+                          exerciseName={exercise.name}
+                          target={exercise.target}
+                          warning={exercise.warning}
+                          cues={exercise.cues}
+                          compact={true}
+                          highlightColor={legColor}
+                        />
                       </div>
 
                       <div className="timer-display">{formattedTimer}</div>
@@ -1476,7 +1504,7 @@ function App() {
                 </button>
               </div>
 
-              {/* Target Leg & Knee Highlight Color Selector */}
+              {/* Target Leg, Knee Highlight Color, and Character Demo Toggle Toolbar */}
               <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '12px 16px', background: 'var(--bg-card-subtle)', borderRadius: 12, marginBottom: 14, border: '1px solid var(--border-card)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span className="field-title" style={{ margin: 0, fontSize: 12 }}>Target Leg:</span>
@@ -1524,9 +1552,10 @@ function App() {
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span className="field-title" style={{ margin: 0, fontSize: 12 }}>Knee Highlight:</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  {/* Knee Color */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span className="field-title" style={{ margin: 0, fontSize: 12 }}>Color:</span>
                     {[
                       { hex: '#10b981', name: 'Clinical Emerald' },
                       { hex: '#00f2fe', name: 'Cyber Cyan' },
@@ -1543,8 +1572,8 @@ function App() {
                           updateCurrentPatient((p) => ({ ...p, legHighlightColor: c.hex }));
                         }}
                         style={{
-                          width: 22,
-                          height: 22,
+                          width: 20,
+                          height: 20,
                           borderRadius: '50%',
                           background: c.hex,
                           border: legColor === c.hex ? '2px solid #ffffff' : '2px solid transparent',
@@ -1556,16 +1585,83 @@ function App() {
                       />
                     ))}
                   </div>
+
+                  {/* Character Guide Toggle */}
+                  <button
+                    type="button"
+                    onClick={() => setShowDemoInCamera((prev) => !prev)}
+                    className="btn btn-quiet"
+                    style={{
+                      padding: '5px 12px',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      borderRadius: 8,
+                      background: showDemoInCamera ? 'rgba(0, 242, 254, 0.15)' : 'transparent',
+                      color: showDemoInCamera ? '#00f2fe' : 'var(--text-secondary)',
+                      border: '1px solid rgba(0, 242, 254, 0.35)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6
+                    }}
+                  >
+                    <Sparkles size={13} color="#00f2fe"/>
+                    {showDemoInCamera ? 'Character Demo: ON' : 'Show Demo Guide'}
+                  </button>
                 </div>
               </div>
 
               {stream ? (
-                <div className="camera-stage">
-                  <video ref={videoRef} className="camera-view" autoPlay muted playsInline style={{ opacity: 0 }} />
-                  <div className="camera-overlay">
-                    <canvas ref={poseCanvasRef} className="pose-canvas" style={{ transform: 'none' }} aria-hidden="true"/>
-                    <div className="alignment-frame" style={{ borderColor: legColor, boxShadow: `0 0 35px ${legColor}33` }}/>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: showDemoInCamera ? 'repeat(auto-fit, minmax(320px, 1fr))' : '1fr',
+                  gap: 16,
+                  alignItems: 'start'
+                }}>
+                  {/* Left Column: Camera Stage & Telemetry */}
+                  <div>
+                    <div className="camera-stage">
+                      <video ref={videoRef} className="camera-view" autoPlay muted playsInline style={{ opacity: 0 }} />
+                      <div className="camera-overlay">
+                        <canvas ref={poseCanvasRef} className="pose-canvas" style={{ transform: 'none' }} aria-hidden="true"/>
+                        <div className="alignment-frame" style={{ borderColor: legColor, boxShadow: `0 0 35px ${legColor}33` }}/>
+                      </div>
+                    </div>
+
+                    <div className={`pose-readout ${poseState.status === 'error' ? 'pose-error' : ''}`} role="status">
+                      <div>
+                        <span className={`pose-dot ${poseState.status}`}/>
+                        <strong>
+                          {poseState.status === 'loading' ? 'Loading pose model' : poseState.status === 'error' ? 'Pose estimate unavailable' : poseState.status === 'searching' ? 'Looking for pose' : 'On-device pose estimate'}
+                        </strong>
+                      </div>
+                      <p>{poseState.message}</p>
+                      {poseState.angle !== null && (
+                        <span className="mono pose-angle">
+                          {poseState.angle}° <small>{poseState.measure}</small>
+                        </span>
+                      )}
+                      {targetAngle !== null && (
+                        <p className="pose-reference">
+                          Plan reference: <strong>{targetAngle}°</strong>. {poseState.angle === null ? 'Compare from a clear lateral view.' : `Current estimate differs by ${Math.abs(poseState.angle - targetAngle)}°.`}
+                        </p>
+                      )}
+                    </div>
                   </div>
+
+                  {/* Right Column: Character Demo Guide Side-by-Side */}
+                  {showDemoInCamera && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      <ExerciseCharacterDemo
+                        exerciseId={exercise.id}
+                        exerciseName={exercise.name}
+                        target={exercise.target}
+                        warning={exercise.warning}
+                        cues={exercise.cues}
+                        compact={false}
+                        highlightColor={legColor}
+                      />
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="empty">
@@ -1575,28 +1671,6 @@ function App() {
                     <button className="btn btn-primary" onClick={() => void startCamera(exercise)}>
                       <Camera size={15}/> Enable camera
                     </button>
-                  )}
-                </div>
-              )}
-
-              {stream && (
-                <div className={`pose-readout ${poseState.status === 'error' ? 'pose-error' : ''}`} role="status">
-                  <div>
-                    <span className={`pose-dot ${poseState.status}`}/>
-                    <strong>
-                      {poseState.status === 'loading' ? 'Loading pose model' : poseState.status === 'error' ? 'Pose estimate unavailable' : poseState.status === 'searching' ? 'Looking for pose' : 'On-device pose estimate'}
-                    </strong>
-                  </div>
-                  <p>{poseState.message}</p>
-                  {poseState.angle !== null && (
-                    <span className="mono pose-angle">
-                      {poseState.angle}° <small>{poseState.measure}</small>
-                    </span>
-                  )}
-                  {targetAngle !== null && (
-                    <p className="pose-reference">
-                      Plan reference: <strong>{targetAngle}°</strong>. {poseState.angle === null ? 'Compare from a clear lateral view.' : `Current estimate differs by ${Math.abs(poseState.angle - targetAngle)}°.`}
-                    </p>
                   )}
                 </div>
               )}
@@ -1738,6 +1812,64 @@ function App() {
         </div>
       )}
 
+      {/* Exercise Character Demo Modal */}
+      {demoModal.open && demoModal.ex && (
+        <div className="modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setDemoModal({ open: false, ex: null }); }}>
+          <section className="modal" style={{ maxWidth: 740, width: '95%' }} role="dialog" aria-modal="true" aria-labelledby="demo-modal-title">
+            <div className="modal-head">
+              <div>
+                <div className="eyebrow" style={{ color: 'var(--accent-cyan)' }}>
+                  <Sparkles size={13}/> INTERACTIVE EXERCISE DEMONSTRATION
+                </div>
+                <h2 id="demo-modal-title">{demoModal.ex.name}</h2>
+                <div className="muted small">Watch Roo's animated bio-mechanical avatar demonstrate correct posture, cadence, and knee angles.</div>
+              </div>
+              <button className="icon-button" onClick={() => setDemoModal({ open: false, ex: null })}>
+                <X size={18}/>
+              </button>
+            </div>
+
+            <div style={{ marginTop: 14 }}>
+              <ExerciseCharacterDemo
+                exerciseId={demoModal.ex.id}
+                exerciseName={demoModal.ex.name}
+                target={demoModal.ex.target}
+                warning={demoModal.ex.warning}
+                cues={demoModal.ex.cues}
+                compact={false}
+                highlightColor={legColor}
+              />
+            </div>
+
+            <div className="modal-actions" style={{ marginTop: 20, display: 'flex', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
+              <button className="btn btn-quiet" onClick={() => setDemoModal({ open: false, ex: null })}>
+                Close Demo
+              </button>
+              <button 
+                className="btn btn-primary" 
+                onClick={() => {
+                  const ex = demoModal.ex!;
+                  setDemoModal({ open: false, ex: null });
+                  launchGuided(ex);
+                }}
+              >
+                <Play size={14}/> Start Guided Set
+              </button>
+              <button 
+                className="btn btn-secondary" 
+                onClick={() => {
+                  const ex = demoModal.ex!;
+                  setDemoModal({ open: false, ex: null });
+                  void startCamera(ex);
+                }}
+              >
+                <Camera size={14}/> Practice with AI Camera
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
       {/* Floating Modern Toast */}
       {toast && (
         <div className="toast" role="status">
@@ -1756,9 +1888,10 @@ function PatientView(props: {
   sleep: string; setSleep: (s: string) => void;
   saveCheckin: () => void; saved: boolean; 
   launchGuided: (e: Exercise) => void; startCamera: (e: Exercise) => void;
+  openDemo: (e: Exercise) => void;
   videoUrl: string; videoMeta: VideoMeta | null;
 }) {
-  const { patient, pain, setPain, swelling, setSwelling, sleep, setSleep, saveCheckin, saved, launchGuided, startCamera, videoUrl, videoMeta } = props;
+  const { patient, pain, setPain, swelling, setSwelling, sleep, setSleep, saveCheckin, saved, launchGuided, startCamera, openDemo, videoUrl, videoMeta } = props;
   const [rooCompanionSpeech, setRooCompanionSpeech] = useState<string>('');
   const [rooCompanionMood, setRooCompanionMood] = useState<'idle' | 'cheering' | 'wondering'>('idle');
 
@@ -1992,6 +2125,9 @@ function PatientView(props: {
                       </button>
                       <button className="btn btn-quiet" onClick={() => void startCamera(item)}>
                         <Camera size={13}/> AI Camera
+                      </button>
+                      <button className="btn btn-quiet" onClick={() => openDemo(item)} title="Watch animated character demo">
+                        <Sparkles size={13} style={{ color: 'var(--accent-cyan)' }}/> Character Demo
                       </button>
                     </div>
                   </div>
@@ -2272,12 +2408,13 @@ function ClinicianView(props: {
   openAddExercise: () => void;
   openEditExercise: (ex: Exercise) => void;
   deleteExercise: (exId: string) => void;
+  openDemo: (ex: Exercise) => void;
   updatePatientNotes: (notes: string) => void;
 }) {
   const { 
     patients, selectedPatientId, setSelectedPatientId, patient, latest, flags, 
     exportReport, videoUrl, videoMeta, videoPlaybackTime, setVideoPlaybackTime,
-    openAddExercise, openEditExercise, deleteExercise, updatePatientNotes
+    openAddExercise, openEditExercise, deleteExercise, openDemo, updatePatientNotes
   } = props;
 
   const [notesEdit, setNotesEdit] = useState(patient.clinicianNotes);
@@ -2442,6 +2579,9 @@ function ClinicianView(props: {
               </div>
 
               <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn btn-quiet" style={{ padding: '6px 12px', fontSize: 11.5 }} onClick={() => openDemo(ex)} title="Preview animated character demo">
+                  <Sparkles size={13} style={{ color: 'var(--accent-cyan)' }}/> Demo
+                </button>
                 <button className="btn btn-quiet" style={{ padding: '6px 12px', fontSize: 11.5 }} onClick={() => openEditExercise(ex)}>
                   <Edit3 size={13}/> Alter / Edit
                 </button>
