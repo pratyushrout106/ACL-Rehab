@@ -22,6 +22,8 @@ export type Patient = {
   age: number;
   graft: string;
   surgeryDate: string;
+  affectedLeg?: 'left' | 'right';
+  legHighlightColor?: string;
   currentPhase: number;
   currentDay: number;
   totalDays: number;
@@ -43,6 +45,8 @@ export const INITIAL_PATIENTS: Patient[] = [
     age: 26,
     graft: 'Hamstring Tendon Autograft',
     surgeryDate: 'Oct 6, 2026',
+    affectedLeg: 'left',
+    legHighlightColor: '#10b981',
     currentPhase: 1,
     currentDay: 12,
     totalDays: 84,
@@ -131,6 +135,8 @@ export const INITIAL_PATIENTS: Patient[] = [
     age: 22,
     graft: 'Bone-Patellar Tendon-Bone (BPTB)',
     surgeryDate: 'Aug 24, 2026',
+    affectedLeg: 'right',
+    legHighlightColor: '#00f2fe',
     currentPhase: 2,
     currentDay: 56,
     totalDays: 140,
@@ -203,6 +209,8 @@ export const INITIAL_PATIENTS: Patient[] = [
     age: 31,
     graft: 'Quadriceps Tendon Autograft',
     surgeryDate: 'May 14, 2026',
+    affectedLeg: 'left',
+    legHighlightColor: '#f59e0b',
     currentPhase: 3,
     currentDay: 154,
     totalDays: 240,

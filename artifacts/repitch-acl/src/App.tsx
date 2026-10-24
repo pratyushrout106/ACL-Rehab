@@ -14,6 +14,7 @@ import {
   Download, 
   Dumbbell, 
   Edit3,
+  ExternalLink,
   FileText, 
   Flame, 
   HeartPulse, 
@@ -38,11 +39,19 @@ import {
   Zap
 } from 'lucide-react';
 import { useTheme } from './lib/theme';
+import { ExerciseCharacterDemo } from './components/ExerciseCharacterDemo';
+import { VideoPlaylistExplorer, type VideoClipEntry, type TelemetryPoint } from './components/VideoPlaylistExplorer';
+import { 
+  RooDuoMascot, 
+  RooOnScreenExerciseCoach,
+  RooBetweenExercisePopup, 
+  MOTIVATIONAL_ROO_QUOTES,
+  type MascotAction 
+} from './components/RooDuoMascot';
 import { RECOVERY_MASTERPLAN, type PhasePlan } from './data/recoveryMasterplan';
 import { INITIAL_PATIENTS, type Patient, type Exercise, type Swelling, type Entry, type Session } from './data/defaultPatients';
 
 type Role = 'patient' | 'clinician';
-type TelemetryPoint = { t: number; angle: number | null; measure: string };
 type VideoMeta = { at: string; exercise: string; duration: number; telemetry?: TelemetryPoint[] };
 
 const STORAGE = { 
@@ -60,6 +69,17 @@ const readJson = <T,>(key: string, fallback: T): T => {
   } 
 };
 
+const loadInitialPatients = (): Patient[] => {
+  const stored = readJson<Patient[]>(STORAGE.patients, []);
+  if (!stored || stored.length === 0) return INITIAL_PATIENTS;
+  const storedIds = new Set(stored.map((p) => p.id));
+  const missing = INITIAL_PATIENTS.filter((p) => !storedIds.has(p.id));
+  if (missing.length > 0) {
+    return [...stored, ...missing];
+  }
+  return stored;
+};
+
 const dayStamp = () => new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 const dateTime = (value: string) => new Date(value).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 
@@ -71,19 +91,19 @@ const angleAt = (a: NormalizedLandmark, b: NormalizedLandmark, c: NormalizedLand
   return Math.round(Math.acos(Math.max(-1, Math.min(1, (ab.x * cb.x + ab.y * cb.y) / denominator))) * (180 / Math.PI));
 };
 
-// Roo Companion Lines: Warm, encouraging female recovery companion
+// Roo Companion Lines: Energetic Duolingo-style recovery motivation ("come on do it etc")
 const ROO_LINES = {
   greetings: [
-    "Hi there! I'm Roo. You're doing wonderful with your recovery today. Let's keep that knee strong and steady!",
-    "You can do anything you set your mind to! I'm right here cheering you on every step of the way.",
-    "Every steady hold makes a difference. You're doing great, keep going!"
+    "Come on, do it! Let's get that knee strong and steady today!",
+    "You can do this! I'm right here cheering you on every step of the way!",
+    "Come on! Every single repetition counts, let's crush today's routine!"
   ],
-  start: "You can do this! Lock that knee straight and hold it steady. I'm right here with you.",
-  halfway: "Halfway through! Looking very strong, keep holding that form steady.",
-  nearEnd: "Almost there! Three, two, one... hold it right there! Excellent work!",
-  completed: "Set complete! You did such a fantastic job! I am so proud of your dedication and progress today! ⭐",
+  start: "Come on, do it! Lock that knee straight and push through!",
+  halfway: "Halfway through! Come on, don't drop, hold that form steady!",
+  nearEnd: "Almost there! Three, two, one... hold it right there! Awesome job!",
+  completed: "Boom! Set complete! You crushed it! Ready for the next one? Come on, let's do it! ⭐",
   retry: "Would you like to try that set again? Come on, we can do it together! 💚",
-  retryConfirm: "Wonderful! Let's give it another shot! You've got this!"
+  retryConfirm: "Wonderful! Let's give it another shot! Come on, do it!"
 };
 
 // Roo Sound & Voice Engine
@@ -149,6 +169,59 @@ class RooSoundEngine {
       osc.stop(t + 0.38);
     });
   }
+
+  // Duolingo-style crisp rhythmic hand clapping
+  playClapSound() {
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    [0, 0.12, 0.24].forEach((offset) => {
+      const t = now + offset;
+      const bufferSize = Math.floor(ctx.sampleRate * 0.04);
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const output = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        output[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.2));
+      }
+      const whiteNoise = ctx.createBufferSource();
+      whiteNoise.buffer = buffer;
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(1200, t);
+      filter.Q.setValueAtTime(2.5, t);
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.18, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+
+      whiteNoise.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+      whiteNoise.start(t);
+    });
+  }
+
+  // Duolingo-style bouncy jumping boing
+  playJumpBoing() {
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(240, now);
+    osc.frequency.exponentialRampToValueAtTime(640, now + 0.16);
+    osc.frequency.exponentialRampToValueAtTime(440, now + 0.26);
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.16, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.32);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.35);
+  }
 }
 
 const rooAudio = new RooSoundEngine();
@@ -194,27 +267,36 @@ function findFemaleHumanVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVo
   return validVoices[0] || voices.find(v => v.lang.startsWith('en')) || voices[0] || null;
 }
 
-// Roo Voice Synthesizer: Natural Human Female Voice (pitch: 1.0, rate: 0.98, volume: 1.0)
-function speakRoo(text: string, enabled: boolean = true, isVictory: boolean = false) {
-  if (!enabled) return;
+let activeUtteranceRef: SpeechSynthesisUtterance | null = null;
 
-  if (isVictory) {
-    rooAudio.playVictoryFanfare();
+// Roo Voice Synthesizer: Natural Human Female Voice
+function speakRoo(text: string, enabled: boolean = true, isVictory: boolean = false) {
+  if (!enabled || typeof window === 'undefined') return;
+
+  try {
+    if (isVictory) {
+      rooAudio.playVictoryFanfare();
+    } else {
+      rooAudio.playWarmCue();
+    }
+  } catch (e) {
+    console.warn('Audio cue error:', e);
   }
 
-  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+  if (!('speechSynthesis' in window)) return;
   try {
-    window.speechSynthesis.cancel();
     if (window.speechSynthesis.paused) {
       window.speechSynthesis.resume();
     }
+    window.speechSynthesis.cancel();
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    // Natural human female voice settings:
-    // pitch 1.0 preserves the authentic human female timbre without any high-pitched Mickey Mouse / cartoon distortion
-    utterance.pitch = 1.0;  // Natural human female pitch
-    utterance.rate = 0.98;  // Natural, clear, articulate human conversational cadence
-    utterance.volume = 1.0; // 100% volume for clear audibility
+    const cleanText = text.replace(/[*_#~`]/g, '').trim();
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    activeUtteranceRef = utterance;
+
+    utterance.pitch = 1.0;
+    utterance.rate = 1.02;
+    utterance.volume = 1.0;
 
     const voices = cachedVoices.length > 0 ? cachedVoices : window.speechSynthesis.getVoices();
     const femaleVoice = findFemaleHumanVoice(voices);
@@ -222,7 +304,14 @@ function speakRoo(text: string, enabled: boolean = true, isVictory: boolean = fa
       utterance.voice = femaleVoice;
     }
 
-    const delay = isVictory ? 300 : 30;
+    utterance.onend = () => {
+      activeUtteranceRef = null;
+    };
+    utterance.onerror = () => {
+      activeUtteranceRef = null;
+    };
+
+    const delay = isVictory ? 320 : 50;
     setTimeout(() => {
       try {
         if (window.speechSynthesis.paused) {
@@ -238,9 +327,29 @@ function speakRoo(text: string, enabled: boolean = true, isVictory: boolean = fa
   }
 }
 
+// Duolingo Mascot Multi-Sensory Audio & Voice Trigger
+function triggerMascotReaction(action: MascotAction, quote: string, enabled: boolean = true) {
+  if (!enabled) return;
+  try {
+    if (action === 'clapping') {
+      rooAudio.playClapSound();
+    } else if (action === 'jumping') {
+      rooAudio.playJumpBoing();
+    } else if (action === 'party') {
+      rooAudio.playVictoryFanfare();
+    } else {
+      rooAudio.playWarmCue();
+    }
+  } catch (e) {
+    console.warn('Audio cue error:', e);
+  }
+  speakRoo(quote, enabled, action === 'party');
+}
+
 interface RooMascotProps {
   mood?: 'idle' | 'cheering' | 'wondering';
-  size?: 'sm' | 'md' | 'lg';
+  action?: MascotAction;
+  size?: 'sm' | 'md' | 'lg' | 'xl';
   speech?: string;
   showSparkles?: boolean;
   onClick?: () => void;
@@ -249,41 +358,28 @@ interface RooMascotProps {
 
 function RooMascot({
   mood = 'idle',
+  action,
   size = 'md',
   speech,
   showSparkles = false,
   onClick,
   className = ''
 }: RooMascotProps) {
+  // Translate legacy mood to modern Duolingo mascot action if action is not provided
+  const resolvedAction: MascotAction = action || (mood === 'cheering' ? 'jumping' : mood === 'wondering' ? 'peeking' : 'idle');
+
   return (
-    <div 
-      className={`roo-mascot-wrapper size-${size} mood-${mood} ${className}`}
+    <RooDuoMascot
+      action={resolvedAction}
+      size={size}
+      speech={speech}
+      showSparkles={showSparkles || resolvedAction === 'jumping' || resolvedAction === 'party'}
+      showConfetti={resolvedAction === 'party'}
+      showFire={resolvedAction === 'streak'}
       onClick={onClick}
-      style={{ cursor: onClick ? 'pointer' : 'default' }}
-      title={onClick ? "Click to hear Roo!" : undefined}
-    >
-      {speech && (
-        <div className="roo-speech-bubble" role="status">
-          <span>{speech}</span>
-          <div className="speech-tail" />
-        </div>
-      )}
-      <div className="roo-mascot-figure">
-        {(showSparkles || mood === 'cheering') && (
-          <div className="roo-sparkles" aria-hidden="true">
-            <span className="sparkle s1">✨</span>
-            <span className="sparkle s2">⭐</span>
-            <span className="sparkle s3">🌟</span>
-          </div>
-        )}
-        <img
-          src="/roo.png"
-          alt="Roo the cheerful kangaroo recovery mascot"
-          className="roo-mascot-img"
-          draggable={false}
-        />
-      </div>
-    </div>
+      className={className}
+      interactive={!!onClick}
+    />
   );
 }
 
@@ -311,8 +407,24 @@ function Art({ kind }: { kind?: Exercise['icon'] }) {
 function App() {
   const { theme, setTheme } = useTheme();
   const [role, setRole] = useState<Role>(() => readJson(STORAGE.role, 'patient' as Role));
-  const [patients, setPatients] = useState<Patient[]>(() => readJson(STORAGE.patients, INITIAL_PATIENTS));
-  const [selectedPatientId, setSelectedPatientId] = useState<string>(() => readJson(STORAGE.selectedPatientId, INITIAL_PATIENTS[0].id));
+  const [patients, setPatients] = useState<Patient[]>(() => loadInitialPatients());
+  const [selectedPatientId, setSelectedPatientId] = useState<string>(() => {
+    const list = loadInitialPatients();
+    const stored = readJson<string>(STORAGE.selectedPatientId, list[0].id);
+    return list.some((p) => p.id === stored) ? stored : list[0].id;
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE.patients, JSON.stringify(patients));
+    } catch {}
+  }, [patients]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE.selectedPatientId, JSON.stringify(selectedPatientId));
+    } catch {}
+  }, [selectedPatientId]);
   
   // Patient tab switcher: 'routine' vs 'masterplan'
   const [patientTab, setPatientTab] = useState<'routine' | 'masterplan'>('routine');
@@ -336,15 +448,38 @@ function App() {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [recording, setRecording] = useState(false);
   const [toast, setToast] = useState('');
-  const [videoUrl, setVideoUrl] = useState('');
-  const [videoMeta, setVideoMeta] = useState<VideoMeta | null>(null);
+  const [clips, setClips] = useState<VideoClipEntry[]>([]);
+  const [selectedClipId, setSelectedClipId] = useState<string | null>(null);
   const [videoPlaybackTime, setVideoPlaybackTime] = useState(0);
+
+  // Selected Leg & Knee Highlight Color for ACL telemetry
+  const [selectedLeg, setSelectedLeg] = useState<'left' | 'right'>(patient.affectedLeg || 'left');
+  const [legColor, setLegColor] = useState<string>(patient.legHighlightColor || '#10b981');
+  const selectedLegRef = useRef<'left' | 'right'>(selectedLeg);
+  selectedLegRef.current = selectedLeg;
+  const legColorRef = useRef<string>(legColor);
+  legColorRef.current = legColor;
+
+  // Exercise Demo Character states
+  const [showDemoInCamera, setShowDemoInCamera] = useState(true);
+  const [demoModal, setDemoModal] = useState<{ open: boolean; ex: Exercise | null }>({ open: false, ex: null });
+  const smoothedLandmarksRef = useRef<NormalizedLandmark[] | null>(null);
+  const currentAngleRef = useRef<number | null>(null);
 
   // Mascot Roo coaching state
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [guidedSpeech, setGuidedSpeech] = useState<string>(ROO_LINES.greetings[0]);
   const [guidedMood, setGuidedMood] = useState<'idle' | 'cheering' | 'wondering'>('idle');
+  const [cameraSpeech, setCameraSpeech] = useState<string>("Come on, do it! Position your knee and push through!");
+  const [cameraMascotAction, setCameraMascotAction] = useState<MascotAction>('jumping');
   const lastCheerSecRef = useRef<number>(-1);
+
+  // Duolingo Roo between-exercise motivation popup ("come on do it etc")
+  const [betweenExerciseModal, setBetweenExerciseModal] = useState<{
+    open: boolean;
+    completedEx: Exercise | null;
+    nextEx: Exercise | null;
+  }>({ open: false, completedEx: null, nextEx: null });
 
   // Physio modal to edit/create exercise
   const [exerciseModal, setExerciseModal] = useState<{ open: boolean; mode: 'add' | 'edit'; targetEx: Exercise | null }>({ open: false, mode: 'add', targetEx: null });
@@ -354,6 +489,18 @@ function App() {
   const [formSeconds, setFormSeconds] = useState(5);
   const [formCategory, setFormCategory] = useState('Activation');
   const [formCues, setFormCues] = useState('');
+
+  // Patient Profile & Add Patient Modals
+  const [profileModal, setProfileModal] = useState<{ open: boolean; patient: Patient | null }>({ open: false, patient: null });
+  const [addPatientModal, setAddPatientModal] = useState(false);
+  const [newPatientName, setNewPatientName] = useState('');
+  const [newPatientSport, setNewPatientSport] = useState('');
+  const [newPatientAge, setNewPatientAge] = useState(22);
+  const [newPatientGraft, setNewPatientGraft] = useState('Bone-Patellar Tendon-Bone (BPTB)');
+  const [newPatientSurgeryDate, setNewPatientSurgeryDate] = useState(dayStamp());
+  const [newPatientLeg, setNewPatientLeg] = useState<'left' | 'right'>('right');
+  const [newPatientPhase, setNewPatientPhase] = useState<1 | 2 | 3 | 4>(1);
+  const [newPatientNotes, setNewPatientNotes] = useState('Patient initiated on postoperative rehab protocol.');
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const poseCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -372,11 +519,13 @@ function App() {
   useEffect(() => { localStorage.setItem(STORAGE.selectedPatientId, JSON.stringify(selectedPatientId)); }, [selectedPatientId]);
   useEffect(() => { localStorage.setItem(STORAGE.role, JSON.stringify(role)); }, [role]);
 
-  // Keep active exercise in sync when patient changes
+  // Keep active exercise, leg and color in sync when patient changes
   useEffect(() => {
     if (patient.prescribedExercises.length > 0 && !patient.prescribedExercises.some((e) => e.id === exercise.id)) {
       setExercise(patient.prescribedExercises[0]);
     }
+    if (patient.affectedLeg) setSelectedLeg(patient.affectedLeg);
+    if (patient.legHighlightColor) setLegColor(patient.legHighlightColor);
   }, [patient]);
 
   const updateCurrentPatient = (updater: (prev: Patient) => Patient) => {
@@ -388,59 +537,99 @@ function App() {
     return () => window.clearInterval(timer);
   }, [running, exercise.seconds, modal]);
 
-  // Roo cheer and voice coach lifecycle during guided exercise
+  // Roo automatic speech and motivation coach lifecycle during active exercise (Guided & Camera)
   useEffect(() => {
-    if (modal !== 'guided' || step !== exercise.cues.length - 1) {
+    if (!modal) {
       lastCheerSecRef.current = -1;
       return;
     }
 
-    // Condition 1: Set completed properly
-    if (seconds >= exercise.seconds && exercise.seconds > 0) {
-      if (lastCheerSecRef.current !== 9999) {
-        lastCheerSecRef.current = 9999;
+    // A. Guided Mode Coaching
+    if (modal === 'guided') {
+      if (step !== exercise.cues.length - 1) {
+        lastCheerSecRef.current = -1;
+        return;
+      }
+
+      // Condition 1: Set completed properly
+      if (seconds >= exercise.seconds && exercise.seconds > 0) {
+        if (lastCheerSecRef.current !== 9999) {
+          lastCheerSecRef.current = 9999;
+          setGuidedMood('cheering');
+          const cheerText = ROO_LINES.completed;
+          setGuidedSpeech(cheerText);
+          speakRoo(cheerText, soundEnabled, true);
+        }
+        return;
+      }
+
+      // Condition 2: Ongoing set (running)
+      if (running && seconds < exercise.seconds) {
         setGuidedMood('cheering');
-        const cheerText = ROO_LINES.completed;
-        setGuidedSpeech(cheerText);
-        speakRoo(cheerText, soundEnabled, true);
+        
+        if (seconds === 1 && lastCheerSecRef.current !== 1) {
+          lastCheerSecRef.current = 1;
+          const msg = "Come on, do it! Lock that knee straight and push through!";
+          setGuidedSpeech(msg);
+          speakRoo(msg, soundEnabled);
+        } else if (seconds === Math.floor(exercise.seconds / 2) && seconds > 1 && lastCheerSecRef.current !== seconds) {
+          lastCheerSecRef.current = seconds;
+          const msg = "Halfway there! Come on, don't drop, hold that quad steady!";
+          setGuidedSpeech(msg);
+          speakRoo(msg, soundEnabled);
+        } else if (seconds === Math.max(2, exercise.seconds - 2) && exercise.seconds > 4 && lastCheerSecRef.current !== seconds) {
+          lastCheerSecRef.current = seconds;
+          const msg = "Almost there! 3, 2, 1... hold it right there, come on!";
+          setGuidedSpeech(msg);
+          speakRoo(msg, soundEnabled);
+        }
+        return;
+      }
+
+      // Condition 3: Else (stopped early / paused before reaching target seconds)
+      if (!running && seconds > 0 && seconds < exercise.seconds) {
+        if (lastCheerSecRef.current !== -888) {
+          lastCheerSecRef.current = -888;
+          setGuidedMood('wondering');
+          const retryText = ROO_LINES.retry;
+          setGuidedSpeech(retryText);
+          speakRoo(retryText, soundEnabled);
+        }
       }
       return;
     }
 
-    // Condition 2: Ongoing set (running)
-    if (running && seconds < exercise.seconds) {
-      setGuidedMood('cheering');
-      
-      if (seconds === 1 && lastCheerSecRef.current !== 1) {
-        lastCheerSecRef.current = 1;
-        const msg = ROO_LINES.start;
-        setGuidedSpeech(msg);
-        speakRoo(msg, soundEnabled);
-      } else if (seconds === Math.floor(exercise.seconds / 2) && seconds > 1 && lastCheerSecRef.current !== seconds) {
-        lastCheerSecRef.current = seconds;
-        const msg = ROO_LINES.halfway;
-        setGuidedSpeech(msg);
-        speakRoo(msg, soundEnabled);
-      } else if (seconds === Math.max(2, exercise.seconds - 2) && exercise.seconds > 4 && lastCheerSecRef.current !== seconds) {
-        lastCheerSecRef.current = seconds;
-        const msg = ROO_LINES.nearEnd;
-        setGuidedSpeech(msg);
-        speakRoo(msg, soundEnabled);
-      }
-      return;
-    }
-
-    // Condition 3: Else (stopped early / paused before reaching target seconds)
-    if (!running && seconds > 0 && seconds < exercise.seconds) {
-      if (lastCheerSecRef.current !== -888) {
-        lastCheerSecRef.current = -888;
-        setGuidedMood('wondering');
-        const retryText = ROO_LINES.retry;
-        setGuidedSpeech(retryText);
-        speakRoo(retryText, soundEnabled);
+    // B. AI Camera Mode Coaching
+    if (modal === 'camera') {
+      if (recording && running) {
+        if (seconds === 1 && lastCheerSecRef.current !== 1) {
+          lastCheerSecRef.current = 1;
+          const msg = "Come on, do it! Keep that knee strong and steady!";
+          setCameraSpeech(msg);
+          setCameraMascotAction('clapping');
+          speakRoo(msg, soundEnabled);
+        } else if (seconds === 10 && lastCheerSecRef.current !== 10) {
+          lastCheerSecRef.current = 10;
+          const msg = "Looking super strong! Come on, keep that quad engaged!";
+          setCameraSpeech(msg);
+          setCameraMascotAction('clapping');
+          speakRoo(msg, soundEnabled);
+        } else if (seconds === 15 && lastCheerSecRef.current !== 15) {
+          lastCheerSecRef.current = 15;
+          const msg = "Halfway through the recording! Come on, push through!";
+          setCameraSpeech(msg);
+          setCameraMascotAction('jumping');
+          speakRoo(msg, soundEnabled);
+        } else if (seconds === 25 && lastCheerSecRef.current !== 25) {
+          lastCheerSecRef.current = 25;
+          const msg = "Almost there! 3, 2, 1... finish strong, come on!";
+          setCameraSpeech(msg);
+          setCameraMascotAction('clapping');
+          speakRoo(msg, soundEnabled);
+        }
       }
     }
-  }, [modal, step, running, seconds, exercise.seconds, exercise.cues.length, soundEnabled]);
+  }, [modal, step, running, recording, seconds, exercise.seconds, exercise.cues.length, soundEnabled]);
 
   useEffect(() => {
     if (videoRef.current && stream) videoRef.current.srcObject = stream;
@@ -459,13 +648,13 @@ function App() {
         const files = await FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.1.1/wasm');
         const options = {
           baseOptions: {
-            modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
+            modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task',
           },
           runningMode: 'VIDEO',
           numPoses: 1,
-          minPoseDetectionConfidence: 0.55,
-          minPosePresenceConfidence: 0.5,
-          minTrackingConfidence: 0.5,
+          minPoseDetectionConfidence: 0.3,
+          minPosePresenceConfidence: 0.3,
+          minTrackingConfidence: 0.3,
         } as const;
         let landmarker: PoseLandmarker;
         try {
@@ -480,7 +669,8 @@ function App() {
         poseLandmarkerRef.current = landmarker;
         setPoseState({ status: 'searching', angle: null, measure: 'joint angle', message: 'Position your working leg in view.' });
 
-        const drawPose = (landmarks: NormalizedLandmark[] | undefined) => {
+        // Draw pose on canvas (runs at smooth 60 FPS)
+        const drawPose = (landmarks: NormalizedLandmark[] | undefined, activeAngle: number | null, now: number) => {
           const canvas = poseCanvasRef.current;
           const video = videoRef.current;
           if (!canvas || !video || !video.videoWidth || !video.videoHeight) return;
@@ -490,70 +680,374 @@ function App() {
             canvas.width = width;
             canvas.height = height;
           }
-          const context = canvas.getContext('2d');
-          if (!context) return;
-          context.clearRect(0, 0, width, height);
-          if (!landmarks) return;
-          const connections = PoseLandmarker.POSE_CONNECTIONS;
-          context.lineWidth = Math.max(2.5, width / 160);
-          context.strokeStyle = '#00f2fe';
-          context.fillStyle = '#d8ffff';
-          for (const { start: from, end: to } of connections) {
-            const a = landmarks[from];
-            const b = landmarks[to];
-            if (!a || !b || (a.visibility ?? 0) < 0.4 || (b.visibility ?? 0) < 0.4) continue;
-            context.beginPath();
-            context.moveTo(a.x * width, a.y * height);
-            context.lineTo(b.x * width, b.y * height);
-            context.stroke();
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return;
+
+          // 1. Draw mirrored camera video frame
+          ctx.save();
+          ctx.translate(width, 0);
+          ctx.scale(-1, 1);
+          ctx.drawImage(video, 0, 0, width, height);
+          ctx.restore();
+
+          const isLeft = selectedLegRef.current === 'left';
+          const chosenColor = legColorRef.current;
+          const otherColor = 'rgba(148, 163, 184, 0.45)';
+          const upperBodyColor = 'rgba(56, 189, 248, 0.35)';
+
+          // Map normalized landmark point to mirrored canvas pixels
+          const toCanvas = (p?: NormalizedLandmark) => {
+            if (!p) return null;
+            return { x: (1 - p.x) * width, y: p.y * height, vis: p.visibility ?? 1 };
+          };
+
+          // 2. Broadcast Telemetry HUD Banner (Top Left)
+          ctx.save();
+          ctx.fillStyle = 'rgba(10, 15, 25, 0.85)';
+          const bannerW = Math.min(380, width - 32);
+          if (typeof ctx.roundRect === 'function') {
+            ctx.beginPath();
+            ctx.roundRect(16, 16, bannerW, 48, 10);
+            ctx.fill();
+            ctx.strokeStyle = chosenColor;
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+          } else {
+            ctx.fillRect(16, 16, bannerW, 48);
+            ctx.strokeStyle = chosenColor;
+            ctx.strokeRect(16, 16, bannerW, 48);
           }
-          for (const point of landmarks) {
-            if ((point.visibility ?? 0) < 0.5) continue;
-            context.beginPath();
-            context.arc(point.x * width, point.y * height, Math.max(2.5, width / 140), 0, Math.PI * 2);
-            context.fill();
+
+          ctx.fillStyle = '#ffffff';
+          ctx.font = '700 12.5px Inter, system-ui, sans-serif';
+          ctx.fillText(exercise.name.toUpperCase(), 28, 35);
+
+          ctx.fillStyle = chosenColor;
+          ctx.font = '600 11px Inter, monospace';
+          const legTag = isLeft ? 'LEFT LEG (OPERATIVE)' : 'RIGHT LEG (OPERATIVE)';
+          ctx.fillText(`TARGET: ${legTag}`, 28, 51);
+
+          // Recording indicator in HUD
+          if (recordingRef.current) {
+            const rx = width - 95;
+            ctx.fillStyle = 'rgba(239, 68, 68, 0.9)';
+            if (typeof ctx.roundRect === 'function') {
+              ctx.beginPath();
+              ctx.roundRect(rx, 16, 80, 36, 8);
+              ctx.fill();
+            } else {
+              ctx.fillRect(rx, 16, 80, 36);
+            }
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '700 12px Inter, sans-serif';
+            ctx.fillText('● REC', rx + 17, 39);
+          }
+          ctx.restore();
+
+          if (!landmarks || landmarks.length < 33) return;
+
+          // Helper to safely draw a connection line between two landmark indices
+          const drawBone = (idx1: number, idx2: number, color: string, lineWidth: number, glow = false) => {
+            const a = toCanvas(landmarks[idx1]);
+            const b = toCanvas(landmarks[idx2]);
+            if (!a || !b) return;
+            // Draw if points exist within a reasonable bounding area
+            if (a.x >= -40 && a.x <= width + 40 && b.x >= -40 && b.x <= width + 40) {
+              ctx.save();
+              const alpha = Math.max(0.4, Math.min(1, (a.vis + b.vis) / 2));
+              ctx.globalAlpha = alpha;
+              if (glow) {
+                ctx.shadowColor = color;
+                ctx.shadowBlur = 12;
+              }
+              ctx.strokeStyle = color;
+              ctx.lineWidth = lineWidth;
+              ctx.lineCap = 'round';
+              ctx.beginPath();
+              ctx.moveTo(a.x, a.y);
+              ctx.lineTo(b.x, b.y);
+              ctx.stroke();
+              ctx.restore();
+            }
+          };
+
+          // 3. Draw Upper Body Connections (Wireframe)
+          const upperBones: [number, number][] = [
+            [11, 12], [11, 13], [13, 15], [12, 14], [14, 16],
+            [11, 23], [12, 24], [23, 24]
+          ];
+          for (const [from, to] of upperBones) {
+            drawBone(from, to, upperBodyColor, Math.max(2, width / 240));
+          }
+
+          // 4. Non-chosen Leg (Healthy leg in subtle dimmed slate)
+          const otherHip = isLeft ? 24 : 23;
+          const otherKnee = isLeft ? 26 : 25;
+          const otherAnkle = isLeft ? 28 : 27;
+          const otherHeel = isLeft ? 30 : 29;
+          const otherFoot = isLeft ? 32 : 31;
+
+          drawBone(otherHip, otherKnee, otherColor, Math.max(2.5, width / 180));
+          drawBone(otherKnee, otherAnkle, otherColor, Math.max(2.5, width / 180));
+          drawBone(otherAnkle, otherHeel, otherColor, Math.max(2, width / 200));
+          drawBone(otherHeel, otherFoot, otherColor, Math.max(2, width / 200));
+          drawBone(otherAnkle, otherFoot, otherColor, Math.max(2, width / 200));
+
+          const otherKneePt = toCanvas(landmarks[otherKnee]);
+          if (otherKneePt) {
+            ctx.fillStyle = otherColor;
+            ctx.beginPath();
+            ctx.arc(otherKneePt.x, otherKneePt.y, 4, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
+          // 5. Chosen (Operative) Leg in Chosen Highlight Color!
+          const chosenHip = isLeft ? 23 : 24;
+          const chosenKnee = isLeft ? 25 : 26;
+          const chosenAnkle = isLeft ? 27 : 28;
+          const chosenHeel = isLeft ? 29 : 30;
+          const chosenFoot = isLeft ? 31 : 32;
+
+          const hipPt = toCanvas(landmarks[chosenHip]);
+          const kneePt = toCanvas(landmarks[chosenKnee]);
+          const anklePt = toCanvas(landmarks[chosenAnkle]);
+
+          // Femur (Hip -> Knee) with neon glow
+          drawBone(chosenHip, chosenKnee, chosenColor, Math.max(4.5, width / 110), true);
+          // Tibia (Knee -> Ankle) with neon glow
+          drawBone(chosenKnee, chosenAnkle, chosenColor, Math.max(4.5, width / 110), true);
+          // Foot bones
+          drawBone(chosenAnkle, chosenHeel, chosenColor, 3, false);
+          drawBone(chosenHeel, chosenFoot, chosenColor, 3, false);
+          drawBone(chosenAnkle, chosenFoot, chosenColor, 3, false);
+
+          // 6. KNEE JOINT HIGHLIGHT TAILORED FOR ACL REHABILITATION
+          if (kneePt) {
+            const kx = kneePt.x;
+            const ky = kneePt.y;
+            const pulse = Math.sin(now / 150) * 4;
+
+            ctx.save();
+            ctx.shadowColor = chosenColor;
+            ctx.shadowBlur = 18;
+
+            // Outer Pulsing Target Ring
+            ctx.strokeStyle = chosenColor;
+            ctx.lineWidth = 2.4;
+            ctx.beginPath();
+            ctx.arc(kx, ky, 22 + pulse, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Precision Crosshairs on Knee Joint
+            const rTick = 22 + pulse;
+            const tLen = 6;
+            ctx.beginPath();
+            ctx.moveTo(kx, ky - rTick - tLen); ctx.lineTo(kx, ky - rTick + 2);
+            ctx.moveTo(kx, ky + rTick - 2); ctx.lineTo(kx, ky + rTick + tLen);
+            ctx.moveTo(kx - rTick - tLen, ky); ctx.lineTo(kx - rTick + 2, ky);
+            ctx.moveTo(kx + rTick - 2, ky); ctx.lineTo(kx + rTick + tLen, ky);
+            ctx.stroke();
+
+            // Core Knee Joint Center
+            ctx.fillStyle = chosenColor;
+            ctx.beginPath();
+            ctx.arc(kx, ky, 8, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(kx, ky, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+
+            // Exercise-Specific ACL Clinical Status & Overlay
+            let statusText = '';
+            let statusColor = chosenColor;
+
+            if (exercise.id.includes('quad')) {
+              // Quad Sets: Terminal Extension Lock Focus (180°)
+              if (activeAngle !== null) {
+                if (activeAngle >= 172) {
+                  statusText = 'LOCKED · 180° EXTENSION';
+                  statusColor = '#10b981';
+                } else {
+                  statusText = `EXT DEFICIT: -${(180 - activeAngle).toFixed(0)}°`;
+                  statusColor = '#f59e0b';
+                }
+              }
+            } else if (exercise.id.includes('raise')) {
+              // Straight Leg Raise: 0° Knee Lag Focus
+              const kneeAng = landmarks[chosenHip] && landmarks[chosenKnee] && landmarks[chosenAnkle]
+                ? angleAt(landmarks[chosenHip], landmarks[chosenKnee], landmarks[chosenAnkle])
+                : null;
+              if (kneeAng !== null && kneeAng < 168) {
+                statusText = `⚠️ KNEE LAG: ${(180 - kneeAng).toFixed(0)}°`;
+                statusColor = '#f43f5e';
+              } else {
+                statusText = '✓ LOCKED (0° LAG)';
+                statusColor = '#10b981';
+              }
+            } else if (exercise.id.includes('heel')) {
+              // Heel Slides: Flexion ROM Arc
+              if (activeAngle !== null) {
+                statusText = `FLEXION: ${activeAngle}° / 110°`;
+                statusColor = activeAngle >= 100 ? '#10b981' : chosenColor;
+
+                // Draw Flexion Arc around knee
+                if (hipPt && anklePt) {
+                  const a1 = Math.atan2(hipPt.y - ky, hipPt.x - kx);
+                  const a2 = Math.atan2(anklePt.y - ky, anklePt.x - kx);
+                  ctx.save();
+                  ctx.strokeStyle = chosenColor;
+                  ctx.lineWidth = 3;
+                  ctx.beginPath();
+                  ctx.arc(kx, ky, 34, a1, a2);
+                  ctx.stroke();
+                  ctx.restore();
+                }
+              }
+            } else if (exercise.id.includes('patella')) {
+              // Patellar Mobilizations: Glide Zone
+              statusText = 'PATELLA GLIDE ZONE';
+              statusColor = chosenColor;
+            } else if (activeAngle !== null) {
+              statusText = `KNEE ANGLE: ${activeAngle}°`;
+            }
+
+            // Floating Knee HUD Card
+            ctx.save();
+            const pillX = Math.min(kx + 28, width - 190);
+            const pillY = Math.max(ky - 24, 70);
+            const pillW = 168;
+            const pillH = statusText ? 44 : 28;
+
+            ctx.fillStyle = 'rgba(10, 15, 25, 0.9)';
+            if (typeof ctx.roundRect === 'function') {
+              ctx.beginPath();
+              ctx.roundRect(pillX, pillY, pillW, pillH, 8);
+              ctx.fill();
+              ctx.strokeStyle = statusColor;
+              ctx.lineWidth = 1.2;
+              ctx.beginPath();
+              ctx.roundRect(pillX, pillY, pillW, pillH, 8);
+              ctx.stroke();
+            } else {
+              ctx.fillRect(pillX, pillY, pillW, pillH);
+              ctx.strokeStyle = statusColor;
+              ctx.strokeRect(pillX, pillY, pillW, pillH);
+            }
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '700 11px Inter, sans-serif';
+            ctx.fillText(`${isLeft ? 'L' : 'R'} KNEE JOINT`, pillX + 10, pillY + 16);
+
+            if (activeAngle !== null) {
+              ctx.fillStyle = chosenColor;
+              ctx.font = '700 11px monospace';
+              ctx.fillText(`${activeAngle}°`, pillX + pillW - 36, pillY + 16);
+            }
+
+            if (statusText) {
+              ctx.fillStyle = statusColor;
+              ctx.font = '600 9.5px Inter, sans-serif';
+              ctx.fillText(statusText, pillX + 10, pillY + 34);
+            }
+            ctx.restore();
           }
         };
 
-        const detect = (now: number) => {
+        let isDetecting = false;
+
+        // 60 FPS Render & Tracking loop
+        const detectLoop = (now: number) => {
           if (stopped) return;
           const video = videoRef.current;
-          if (video && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && now - lastInference >= 100) {
-            lastInference = now;
-            const result = landmarker.detectForVideo(video, now);
-            const landmarks = result.landmarks[0];
-            drawPose(landmarks);
+          if (video && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+            // Draw on canvas every frame (smooth 60 FPS)
+            drawPose(smoothedLandmarksRef.current || undefined, currentAngleRef.current, now);
 
-            let angle: number | null = null;
-            let measure = exercise.id.includes('raise') ? 'estimated hip angle' : 'estimated knee angle';
-            if (landmarks) {
-              const candidates = exercise.id.includes('raise')
-                ? [[11, 23, 25], [12, 24, 26]]
-                : [[23, 25, 27], [24, 26, 28]];
-              const side = candidates
-                .map(([a, b, c]) => ({ points: [landmarks[a], landmarks[b], landmarks[c]], confidence: Math.min(landmarks[a]?.visibility ?? 0, landmarks[b]?.visibility ?? 0, landmarks[c]?.visibility ?? 0) }))
-                .filter((candidate) => candidate.confidence >= 0.45)
-                .sort((a, b) => b.confidence - a.confidence)[0];
-              if (side) angle = angleAt(side.points[0], side.points[1], side.points[2]);
-            }
-            if (exercise.id.includes('patella')) angle = null;
-            const message = !landmarks
-              ? 'No pose detected. Adjust lighting or include your leg in frame.'
-              : angle === null
-                ? 'Pose found; ensure full working knee is visible.'
-                : 'Live on-device 2D kinematic estimate.';
-            if (recordingRef.current && now - lastTelemetryAtRef.current >= 500) {
-              lastTelemetryAtRef.current = now;
-              telemetryRef.current.push({ t: Math.round((now - recordingStartedAtRef.current) / 100) / 10, angle, measure });
-            }
-            if (now - lastUiUpdate >= 250) {
-              lastUiUpdate = now;
-              setPoseState({ status: landmarks ? 'tracking' : 'searching', angle: exercise.id.includes('patella') ? null : angle, measure, message });
+            // Run detection non-blocking
+            if (!isDetecting && now - lastInference >= 65) {
+              isDetecting = true;
+              lastInference = now;
+              try {
+                const result = landmarker.detectForVideo(video, now);
+                const rawLandmarks = result.landmarks[0];
+
+                if (rawLandmarks && rawLandmarks.length >= 33) {
+                  // Exponential Moving Average (EMA) smoothing to eliminate line jitter
+                  if (!smoothedLandmarksRef.current || smoothedLandmarksRef.current.length !== rawLandmarks.length) {
+                    smoothedLandmarksRef.current = rawLandmarks.map((p) => ({ ...p }));
+                  } else {
+                    for (let i = 0; i < rawLandmarks.length; i++) {
+                      const cur = rawLandmarks[i];
+                      const prev = smoothedLandmarksRef.current[i];
+                      prev.x = prev.x * 0.25 + cur.x * 0.75;
+                      prev.y = prev.y * 0.25 + cur.y * 0.75;
+                      prev.z = (prev.z ?? 0) * 0.25 + (cur.z ?? 0) * 0.75;
+                      prev.visibility = cur.visibility ?? 1;
+                    }
+                  }
+
+                  // Compute joint angle for selected operative leg
+                  const isLeft = selectedLegRef.current === 'left';
+                  let angle: number | null = null;
+                  let measure = exercise.id.includes('raise') ? 'estimated hip angle' : 'estimated knee angle';
+
+                  if (exercise.id.includes('raise')) {
+                    const hipCandidates = isLeft ? [11, 23, 25] : [12, 24, 26];
+                    const p1 = smoothedLandmarksRef.current[hipCandidates[0]];
+                    const p2 = smoothedLandmarksRef.current[hipCandidates[1]];
+                    const p3 = smoothedLandmarksRef.current[hipCandidates[2]];
+                    if (p1 && p2 && p3) {
+                      angle = angleAt(p1, p2, p3);
+                    }
+                  } else if (!exercise.id.includes('patella')) {
+                    const kneeCandidates = isLeft ? [23, 25, 27] : [24, 26, 28];
+                    const p1 = smoothedLandmarksRef.current[kneeCandidates[0]];
+                    const p2 = smoothedLandmarksRef.current[kneeCandidates[1]];
+                    const p3 = smoothedLandmarksRef.current[kneeCandidates[2]];
+                    if (p1 && p2 && p3) {
+                      angle = angleAt(p1, p2, p3);
+                    }
+                  }
+
+                  currentAngleRef.current = angle;
+
+                  if (recordingRef.current && now - lastTelemetryAtRef.current >= 500) {
+                    lastTelemetryAtRef.current = now;
+                    telemetryRef.current.push({ t: Math.round((now - recordingStartedAtRef.current) / 100) / 10, angle, measure });
+                  }
+
+                  if (now - lastUiUpdate >= 250) {
+                    lastUiUpdate = now;
+                    setPoseState({
+                      status: 'tracking',
+                      angle: exercise.id.includes('patella') ? null : angle,
+                      measure,
+                      message: 'Live on-device 2D kinematic tracking.'
+                    });
+                  }
+                } else {
+                  if (now - lastUiUpdate >= 500) {
+                    lastUiUpdate = now;
+                    setPoseState({
+                      status: 'searching',
+                      angle: null,
+                      measure: 'joint angle',
+                      message: 'Looking for full body pose in view.'
+                    });
+                  }
+                }
+              } catch (err) {
+                console.warn('Inference error:', err);
+              } finally {
+                isDetecting = false;
+              }
             }
           }
-          frame = window.requestAnimationFrame(detect);
+          frame = window.requestAnimationFrame(detectLoop);
         };
-        frame = window.requestAnimationFrame(detect);
+        frame = window.requestAnimationFrame(detectLoop);
       } catch (error) {
         if (!stopped) {
           setPoseState({
@@ -578,24 +1072,29 @@ function App() {
   }, [exercise, modal, stream]);
 
   useEffect(() => {
+    let active = true;
     const load = async () => {
       try {
-        const db = await openVideoDb();
-        const request = db.transaction('clips', 'readonly').objectStore('clips').get('latest');
-        request.onsuccess = () => {
-          if (request.result?.blob) {
-            setVideoUrl(URL.createObjectURL(request.result.blob));
-            setVideoMeta(request.result.meta);
-            setVideoPlaybackTime(0);
-          }
-        };
-      } catch { /* local video playback is optional */ }
+        const rawClips = await loadAllVideoClips();
+        if (!active) return;
+        const mapped: VideoClipEntry[] = rawClips.map((c) => ({
+          ...c,
+          url: URL.createObjectURL(c.blob),
+        }));
+        setClips(mapped);
+        if (mapped.length > 0) {
+          setSelectedClipId(mapped[0].id);
+        }
+      } catch { /* IndexedDB local video playback fallback */ }
     };
     void load();
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => () => { stream?.getTracks().forEach((track) => track.stop()); }, [stream]);
-  useEffect(() => () => { if (videoUrl) URL.revokeObjectURL(videoUrl); }, [videoUrl]);
+  useEffect(() => () => { clips.forEach((c) => URL.revokeObjectURL(c.url)); }, [clips]);
   useEffect(() => { if (!toast) return; const timer = window.setTimeout(() => setToast(''), 2800); return () => window.clearTimeout(timer); }, [toast]);
 
   const saveCheckin = () => {
@@ -611,13 +1110,15 @@ function App() {
 
   const launchGuided = (item: Exercise) => { 
     setExercise(item); 
-    setStep(0); 
+    setStep(item.cues.length - 1); 
     setSeconds(0); 
     setRunning(false); 
     setModal('guided'); 
     lastCheerSecRef.current = -1;
     setGuidedMood('idle');
-    setGuidedSpeech(ROO_LINES.start);
+    const msg = `Come on, do it! Let's start ${item.name}!`;
+    setGuidedSpeech(msg);
+    speakRoo(msg, soundEnabled);
   };
   
   const completeSession = () => {
@@ -636,11 +1137,24 @@ function App() {
     setModal(null); 
     setRunning(false); 
     setToast('Session saved! +15 RePitch XP gained.');
+
+    // Duolingo Roo pops up between exercises to motivate patient to do the next exercise
+    const curIdx = patient.routine.findIndex((e) => e.id === exercise.id);
+    const nextEx = curIdx !== -1 && curIdx + 1 < patient.routine.length ? patient.routine[curIdx + 1] : patient.routine[0];
+    setBetweenExerciseModal({
+      open: true,
+      completedEx: exercise,
+      nextEx: nextEx
+    });
   };
 
   const startCamera = async (item: Exercise) => {
     const requestId = ++cameraRequestRef.current;
     setExercise(item); setCameraError(''); setModal('camera'); setRecording(false);
+    const welcomeMsg = `Come on, do it! Position your knee for ${item.name}!`;
+    setCameraSpeech(welcomeMsg);
+    setCameraMascotAction('jumping');
+    speakRoo(welcomeMsg, soundEnabled);
     try {
       if (!navigator.mediaDevices?.getUserMedia) throw new Error('Camera access is not supported in this browser.');
       const nextStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
@@ -672,7 +1186,29 @@ function App() {
   const recordVideo = () => {
     if (!stream || !window.MediaRecorder) { setCameraError('Local video recording is unavailable in this browser.'); return; }
     try {
-      const recorder = new MediaRecorder(stream); recorderRef.current = recorder; chunksRef.current = [];
+      let recordingStream: MediaStream = stream;
+      const canvas = poseCanvasRef.current;
+      if (canvas && typeof (canvas as unknown as { captureStream?: (fps?: number) => MediaStream }).captureStream === 'function') {
+        try {
+          const canvasStream = (canvas as unknown as { captureStream: (fps?: number) => MediaStream }).captureStream(30);
+          if (stream.getAudioTracks().length > 0) {
+            canvasStream.addTrack(stream.getAudioTracks()[0]);
+          }
+          recordingStream = canvasStream;
+        } catch (err) {
+          console.warn('Canvas captureStream fallback to raw stream:', err);
+          recordingStream = stream;
+        }
+      }
+
+      const mimeTypes = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm', 'video/mp4'];
+      const supportedType = mimeTypes.find((t) => window.MediaRecorder.isTypeSupported(t)) || '';
+      const recorder = supportedType
+        ? new MediaRecorder(recordingStream, { mimeType: supportedType })
+        : new MediaRecorder(recordingStream);
+
+      recorderRef.current = recorder;
+      chunksRef.current = [];
       savedAt.current = new Date().toISOString();
       recordingStartedAtRef.current = performance.now();
       lastTelemetryAtRef.current = 0;
@@ -682,16 +1218,92 @@ function App() {
       recorder.onstop = () => {
         recordingRef.current = false;
         const blob = new Blob(chunksRef.current, { type: recorder.mimeType || 'video/webm' });
-        const meta: VideoMeta = { at: savedAt.current, exercise: exercise.name, duration: Math.max(1, Math.round((performance.now() - recordingStartedAtRef.current) / 1000)), telemetry: [...telemetryRef.current] };
-        setVideoUrl(URL.createObjectURL(blob)); setVideoMeta(meta); setVideoPlaybackTime(0);
-        void saveVideo(blob, meta).then(() => setToast('Clip stored locally on this device.')).catch(() => setCameraError('Clip storage error.'));
+        const clipId = `clip-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+        const at = savedAt.current;
+        const exerciseName = `${exercise.name} (${selectedLegRef.current.toUpperCase()} Leg)`;
+        const duration = Math.max(1, Math.round((performance.now() - recordingStartedAtRef.current) / 1000));
+        const telemetry = [...telemetryRef.current];
+
+        const newEntry: VideoClipEntry = {
+          id: clipId,
+          patientId: patient.id,
+          at,
+          exercise: exerciseName,
+          duration,
+          url: URL.createObjectURL(blob),
+          blob,
+          telemetry,
+        };
+
+        setClips((prev) => [newEntry, ...prev]);
+        setSelectedClipId(clipId);
+        setVideoPlaybackTime(0);
+
+        void saveVideoClip({
+          id: clipId,
+          patientId: patient.id,
+          at,
+          exercise: exerciseName,
+          duration,
+          blob,
+          telemetry,
+        })
+          .then(() => {
+            setToast(`Saved "${exerciseName}" to video playlist.`);
+            triggerMascotReaction('party', `Awesome job! Saved "${exerciseName}" to your video playlist! 🎉`, soundEnabled);
+            const curIdx = patient.routine.findIndex((e) => e.id === exercise.id);
+            const nextEx = curIdx !== -1 && curIdx + 1 < patient.routine.length ? patient.routine[curIdx + 1] : patient.routine[0];
+            setBetweenExerciseModal({
+              open: true,
+              completedEx: exercise,
+              nextEx: nextEx
+            });
+          })
+          .catch(() => setCameraError('Clip storage error.'));
+
         setRecording(false);
       };
-      recorder.start(); setSeconds(0); setRunning(true); setRecording(true);
-    } catch { setCameraError('Could not start recording.'); }
+      recorder.start(100);
+      setSeconds(0);
+      setRunning(true);
+      setRecording(true);
+      const startMsg = "Recording started! Come on, hold that knee steady!";
+      setCameraSpeech(startMsg);
+      setCameraMascotAction('clapping');
+      speakRoo(startMsg, soundEnabled);
+    } catch {
+      setCameraError('Could not start recording.');
+    }
   };
 
   const stopRecording = () => { recordingRef.current = false; recorderRef.current?.stop(); setRunning(false); };
+
+  const downloadClip = (clip: VideoClipEntry) => {
+    const a = document.createElement('a');
+    a.href = clip.url;
+    const cleanName = clip.exercise.toLowerCase().replace(/[^a-z0-9]/g, '-');
+    a.download = `${cleanName}-${new Date(clip.at).toISOString().slice(0, 10)}.webm`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setToast(`Downloading video clip for "${clip.exercise}".`);
+  };
+
+  const deleteClip = async (clipId: string) => {
+    const target = clips.find((c) => c.id === clipId);
+    if (!target) return;
+    const confirmDelete = window.confirm(`Delete recorded video clip for "${target.exercise}"?`);
+    if (!confirmDelete) return;
+
+    await deleteVideoClipFromDb(clipId);
+    URL.revokeObjectURL(target.url);
+    const updated = clips.filter((c) => c.id !== clipId);
+    setClips(updated);
+    if (selectedClipId === clipId) {
+      setSelectedClipId(updated[0]?.id || null);
+    }
+    setToast('Video clip removed from playlist.');
+  };
 
   useEffect(() => {
     if (recording && seconds >= 30) {
@@ -773,6 +1385,95 @@ function App() {
     setToast('Exercise removed from prescription.');
   };
 
+  const updatePatientPhase = (newPhase: 1 | 2 | 3 | 4) => {
+    const phaseDefaultEx = 
+      newPhase === 1 ? INITIAL_PATIENTS[0].prescribedExercises :
+      newPhase === 2 ? INITIAL_PATIENTS[1].prescribedExercises :
+      newPhase === 3 ? INITIAL_PATIENTS[2].prescribedExercises :
+      INITIAL_PATIENTS[3].prescribedExercises;
+
+    updateCurrentPatient((p) => ({
+      ...p,
+      currentPhase: newPhase,
+      prescribedExercises: phaseDefaultEx
+    }));
+    setToast(`Cleared ${patient.name} for Phase ${newPhase}! Loaded Phase ${newPhase} evidence protocol.`);
+  };
+
+  const handleCreatePatient = () => {
+    if (!newPatientName.trim()) {
+      setToast('Please enter athlete name.');
+      return;
+    }
+    const name = newPatientName.trim();
+    const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'PT';
+    const id = `pt-${Date.now()}`;
+    const phaseDefaultEx = 
+      newPatientPhase === 1 ? INITIAL_PATIENTS[0].prescribedExercises :
+      newPatientPhase === 2 ? INITIAL_PATIENTS[1].prescribedExercises :
+      newPatientPhase === 3 ? INITIAL_PATIENTS[2].prescribedExercises :
+      INITIAL_PATIENTS[3].prescribedExercises;
+
+    const newPt: Patient = {
+      id,
+      name,
+      avatar: initials,
+      sport: newPatientSport.trim() || 'Multi-sport Athlete',
+      age: Number(newPatientAge) || 22,
+      graft: newPatientGraft,
+      surgeryDate: newPatientSurgeryDate || dayStamp(),
+      affectedLeg: newPatientLeg,
+      legHighlightColor: newPatientLeg === 'left' ? '#10b981' : '#00f2fe',
+      currentPhase: newPatientPhase,
+      currentDay: 1,
+      totalDays: 240,
+      streakDays: 0,
+      adherenceRate: 100,
+      repitchPoints: 100,
+      clinicianNotes: newPatientNotes.trim() || 'Patient initiated on postoperative rehab protocol.',
+      checkins: [
+        { pain: 2, swelling: 'Mild', sleep: 'Good', date: `${dayStamp()} · Intake` }
+      ],
+      sessions: [],
+      prescribedExercises: phaseDefaultEx
+    };
+
+    setPatients((prev) => [...prev, newPt]);
+    setSelectedPatientId(newPt.id);
+    setAddPatientModal(false);
+    setNewPatientName('');
+    setNewPatientSport('');
+    setToast(`Registered ${newPt.name} to patient roster.`);
+  };
+
+  const handleDeletePatient = (patientIdToDelete: string) => {
+    if (patients.length <= 1) {
+      setToast('Cannot delete the only patient on your roster. At least 1 patient required.');
+      return;
+    }
+    const target = patients.find((p) => p.id === patientIdToDelete);
+    if (!target) return;
+    const confirmDelete = window.confirm(`Are you sure you want to delete patient record for "${target.name}"? This cannot be undone.`);
+    if (!confirmDelete) return;
+
+    const remaining = patients.filter((p) => p.id !== patientIdToDelete);
+    setPatients(remaining);
+    if (selectedPatientId === patientIdToDelete) {
+      setSelectedPatientId(remaining[0].id);
+    }
+    if (profileModal.open && profileModal.patient?.id === patientIdToDelete) {
+      setProfileModal({ open: false, patient: null });
+    }
+    setToast(`Deleted ${target.name} from clinical roster.`);
+  };
+
+  const switchToPatientPortal = (patientIdToSwitch: string) => {
+    setSelectedPatientId(patientIdToSwitch);
+    setRole('patient');
+    setProfileModal({ open: false, patient: null });
+    setToast(`Switched view to ${patients.find(p => p.id === patientIdToSwitch)?.name || 'athlete'}'s portal.`);
+  };
+
   const exportReport = () => {
     const reportLatest = patient.checkins[0];
     const reportFlags = patient.checkins.filter((item) => item.pain >= 5 || item.swelling === 'Moderate' || item.swelling === 'Severe');
@@ -802,7 +1503,21 @@ function App() {
 
   const latest = patient.checkins[0];
   const flags = patient.checkins.filter((entry) => entry.pain >= 5 || entry.swelling === 'Severe' || entry.swelling === 'Moderate');
-  const targetAngle = exercise.id.includes('quad') ? 180 : exercise.id.includes('raise') ? 135 : exercise.id.includes('heel') ? 110 : null;
+  const exKey = `${exercise.id} ${exercise.name}`.toLowerCase();
+  const targetAngle = 
+    exKey.includes('quad') ? 180 :
+    exKey.includes('raise') ? 135 :
+    exKey.includes('heel') ? 110 :
+    exKey.includes('patell') ? 180 :
+    exKey.includes('wall') ? 60 :
+    exKey.includes('step') ? 180 :
+    exKey.includes('bike') ? 110 :
+    exKey.includes('bulgarian') ? 90 :
+    exKey.includes('box') ? 90 :
+    exKey.includes('jog') ? 90 :
+    exKey.includes('cut') ? 50 :
+    exKey.includes('skater') ? 60 :
+    180;
   const remainingSeconds = modal === 'guided' && step === exercise.cues.length - 1 ? Math.max(0, exercise.seconds - seconds) : seconds;
   const formattedTimer = `${String(Math.floor(remainingSeconds / 60)).padStart(2, '0')}:${String(remainingSeconds % 60).padStart(2, '0')}`;
 
@@ -901,7 +1616,12 @@ function App() {
                 sleep={sleep} setSleep={setSleep}
                 saveCheckin={saveCheckin} saved={saved}
                 launchGuided={launchGuided} startCamera={startCamera}
-                videoUrl={videoUrl} videoMeta={videoMeta}
+                openDemo={(ex) => setDemoModal({ open: true, ex })}
+                clips={clips.filter((c) => !c.patientId || c.patientId === patient.id)}
+                selectedClipId={selectedClipId}
+                setSelectedClipId={setSelectedClipId}
+                downloadClip={downloadClip}
+                deleteClip={deleteClip}
               />
             ) : (
               <MasterplanView patient={patient} />
@@ -916,14 +1636,21 @@ function App() {
             latest={latest}
             flags={flags}
             exportReport={exportReport}
-            videoUrl={videoUrl}
-            videoMeta={videoMeta}
-            videoPlaybackTime={videoPlaybackTime}
-            setVideoPlaybackTime={setVideoPlaybackTime}
+            clips={clips.filter((c) => !c.patientId || c.patientId === patient.id)}
+            selectedClipId={selectedClipId}
+            setSelectedClipId={setSelectedClipId}
+            downloadClip={downloadClip}
+            deleteClip={deleteClip}
             openAddExercise={openAddExercise}
             openEditExercise={openEditExercise}
             deleteExercise={deleteExercise}
+            openDemo={(ex) => setDemoModal({ open: true, ex })}
             updatePatientNotes={(notes) => updateCurrentPatient((p) => ({ ...p, clinicianNotes: notes }))}
+            updatePatientPhase={updatePatientPhase}
+            openAddPatient={() => setAddPatientModal(true)}
+            deletePatient={handleDeletePatient}
+            openProfile={(p) => setProfileModal({ open: true, patient: p })}
+            switchToPatientPortal={switchToPatientPortal}
           />
         )}
 
@@ -961,18 +1688,18 @@ function App() {
                       <div className="roo-cheer-stage">
                         <RooMascot
                           size="md"
-                          mood={guidedMood}
+                          action={seconds >= exercise.seconds ? 'party' : running ? 'clapping' : 'peeking'}
                           speech={guidedSpeech}
-                          showSparkles={guidedMood === 'cheering'}
+                          showSparkles={seconds >= exercise.seconds || running}
                           onClick={() => {
                             if (seconds >= exercise.seconds) {
-                              speakRoo(ROO_LINES.completed, soundEnabled, true);
+                              triggerMascotReaction('party', ROO_LINES.completed, soundEnabled);
                             } else if (running) {
-                              speakRoo(ROO_LINES.halfway, soundEnabled);
+                              triggerMascotReaction('clapping', ROO_LINES.halfway, soundEnabled);
                             } else if (seconds > 0) {
-                              speakRoo(ROO_LINES.retry, soundEnabled);
+                              triggerMascotReaction('peeking', ROO_LINES.retry, soundEnabled);
                             } else {
-                              speakRoo(ROO_LINES.greetings[0], soundEnabled);
+                              triggerMascotReaction('jumping', ROO_LINES.greetings[0], soundEnabled);
                             }
                           }}
                         />
@@ -987,6 +1714,19 @@ function App() {
                           {soundEnabled ? <Volume2 size={13} style={{ color: 'var(--accent-emerald)' }} /> : <VolumeX size={13} />}
                           <span>Roo voice: {soundEnabled ? 'ON' : 'MUTED'}</span>
                         </button>
+                      </div>
+
+                      {/* Animated Character Demonstration for this exercise */}
+                      <div style={{ margin: '14px 0 16px' }}>
+                        <ExerciseCharacterDemo
+                          exerciseId={exercise.id}
+                          exerciseName={exercise.name}
+                          target={exercise.target}
+                          warning={exercise.warning}
+                          cues={exercise.cues}
+                          compact={true}
+                          highlightColor={legColor}
+                        />
                       </div>
 
                       <div className="timer-display">{formattedTimer}</div>
@@ -1086,10 +1826,10 @@ function App() {
                 <div className="empty" style={{ border: 0, padding: '28px 20px', textAlign: 'center' }}>
                   <RooMascot
                     size="lg"
-                    mood="cheering"
+                    action="party"
                     speech={ROO_LINES.completed}
                     showSparkles={true}
-                    onClick={() => speakRoo(ROO_LINES.completed, soundEnabled, true)}
+                    onClick={() => triggerMascotReaction('party', ROO_LINES.completed, soundEnabled)}
                   />
                   <h3 style={{ fontSize: 24, margin: '14px 0 6px', fontWeight: 800 }}>Set Complete!</h3>
                   <p className="muted" style={{ margin: '0 0 20px', maxWidth: 360, marginLeft: 'auto', marginRight: 'auto' }}>
@@ -1119,7 +1859,7 @@ function App() {
               )}
             </section>
           ) : (
-            <section className="modal" role="dialog" aria-modal="true" aria-labelledby="camera-title">
+            <section className={`modal ${showDemoInCamera ? 'modal-camera' : ''}`} style={{ maxWidth: showDemoInCamera ? 1280 : 760, width: '96vw', transition: 'max-width 0.25s ease' }} role="dialog" aria-modal="true" aria-labelledby="camera-title">
               <div className="modal-head">
                 <div>
                   <div className="eyebrow"><Zap size={12}/> AI COMPUTER VISION ASSIST</div>
@@ -1131,73 +1871,299 @@ function App() {
                 </button>
               </div>
 
-              {stream ? (
-                <div className="camera-stage">
-                  <video ref={videoRef} className="camera-view" autoPlay muted playsInline/>
-                  <div className="camera-overlay">
-                    <canvas ref={poseCanvasRef} className="pose-canvas" aria-hidden="true"/>
-                    <div className="alignment-frame"/>
-                  </div>
-                </div>
-              ) : (
-                <div className="empty">
-                  <Camera size={34} style={{ color: 'var(--accent-cyan)', margin: '0 auto 12px' }}/>
-                  <p>{cameraError || 'Request camera access to see live joint tracking.'}</p>
-                  {!cameraError && (
-                    <button className="btn btn-primary" onClick={() => void startCamera(exercise)}>
-                      <Camera size={15}/> Enable camera
+              {/* Target Leg, Knee Highlight Color, and Character Demo Toggle Toolbar */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '12px 16px', background: 'var(--bg-card-subtle)', borderRadius: 12, marginBottom: 14, border: '1px solid var(--border-card)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span className="field-title" style={{ margin: 0, fontSize: 12 }}>Target Leg:</span>
+                  <div style={{ display: 'inline-flex', background: 'rgba(0,0,0,0.3)', padding: 3, borderRadius: 8, border: '1px solid var(--border-card)' }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedLeg('left');
+                        updateCurrentPatient((p) => ({ ...p, affectedLeg: 'left' }));
+                      }}
+                      className="btn"
+                      style={{
+                        padding: '5px 12px',
+                        fontSize: 12,
+                        fontWeight: 600,
+                        borderRadius: 6,
+                        background: selectedLeg === 'left' ? legColor : 'transparent',
+                        color: selectedLeg === 'left' ? '#000000' : 'var(--text-secondary)',
+                        border: 0,
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      Left Leg {patient.affectedLeg === 'left' ? '(Operative)' : ''}
                     </button>
-                  )}
-                </div>
-              )}
-
-              {stream && (
-                <div className={`pose-readout ${poseState.status === 'error' ? 'pose-error' : ''}`} role="status">
-                  <div>
-                    <span className={`pose-dot ${poseState.status}`}/>
-                    <strong>
-                      {poseState.status === 'loading' ? 'Loading pose model' : poseState.status === 'error' ? 'Pose estimate unavailable' : poseState.status === 'searching' ? 'Looking for pose' : 'On-device pose estimate'}
-                    </strong>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedLeg('right');
+                        updateCurrentPatient((p) => ({ ...p, affectedLeg: 'right' }));
+                      }}
+                      className="btn"
+                      style={{
+                        padding: '5px 12px',
+                        fontSize: 12,
+                        fontWeight: 600,
+                        borderRadius: 6,
+                        background: selectedLeg === 'right' ? legColor : 'transparent',
+                        color: selectedLeg === 'right' ? '#000000' : 'var(--text-secondary)',
+                        border: 0,
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      Right Leg {patient.affectedLeg === 'right' ? '(Operative)' : ''}
+                    </button>
                   </div>
-                  <p>{poseState.message}</p>
-                  {poseState.angle !== null && (
-                    <span className="mono pose-angle">
-                      {poseState.angle}° <small>{poseState.measure}</small>
-                    </span>
-                  )}
-                  {targetAngle !== null && (
-                    <p className="pose-reference">
-                      Plan reference: <strong>{targetAngle}°</strong>. {poseState.angle === null ? 'Compare from a clear lateral view.' : `Current estimate differs by ${Math.abs(poseState.angle - targetAngle)}°.`}
-                    </p>
-                  )}
                 </div>
-              )}
 
-              {cameraError && (
-                <div className="flag" style={{ marginTop: 14 }}>
-                  <CircleHelp size={16}/>
-                  <span>{cameraError}</span>
-                </div>
-              )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  {/* Knee Color */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span className="field-title" style={{ margin: 0, fontSize: 12 }}>Color:</span>
+                    {[
+                      { hex: '#10b981', name: 'Clinical Emerald' },
+                      { hex: '#00f2fe', name: 'Cyber Cyan' },
+                      { hex: '#f59e0b', name: 'High-Vis Gold' },
+                      { hex: '#f43f5e', name: 'Coral Pink' },
+                      { hex: '#a855f7', name: 'Neon Violet' }
+                    ].map((c) => (
+                      <button
+                        key={c.hex}
+                        type="button"
+                        title={c.name}
+                        onClick={() => {
+                          setLegColor(c.hex);
+                          updateCurrentPatient((p) => ({ ...p, legHighlightColor: c.hex }));
+                        }}
+                        style={{
+                          width: 20,
+                          height: 20,
+                          borderRadius: '50%',
+                          background: c.hex,
+                          border: legColor === c.hex ? '2px solid #ffffff' : '2px solid transparent',
+                          boxShadow: legColor === c.hex ? `0 0 10px ${c.hex}` : 'none',
+                          cursor: 'pointer',
+                          transform: legColor === c.hex ? 'scale(1.2)' : 'scale(1)',
+                          transition: 'all 0.15s ease'
+                        }}
+                      />
+                    ))}
+                  </div>
 
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 16 }}>
-                {stream && (
-                  <button className={`btn ${recording ? 'btn-danger' : 'btn-primary'}`} onClick={recording ? stopRecording : recordVideo}>
-                    {recording ? (
-                      <>
-                        <span className="tag" style={{ background: '#51232a', color: '#ffb3b3' }}>REC {formattedTimer}</span>
-                        Stop and save clip
-                      </>
-                    ) : (
-                      <>
-                        <Video size={16}/> Record local clip · max 30s
-                      </>
-                    )}
+                  {/* Character Guide Toggle */}
+                  <button
+                    type="button"
+                    onClick={() => setShowDemoInCamera((prev) => !prev)}
+                    className="btn btn-quiet"
+                    style={{
+                      padding: '5px 12px',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      borderRadius: 8,
+                      background: showDemoInCamera ? 'rgba(0, 242, 254, 0.15)' : 'transparent',
+                      color: showDemoInCamera ? '#00f2fe' : 'var(--text-secondary)',
+                      border: '1px solid rgba(0, 242, 254, 0.35)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6
+                    }}
+                  >
+                    <Sparkles size={13} color="#00f2fe"/>
+                    {showDemoInCamera ? 'Character Demo: ON' : 'Show Demo Guide'}
                   </button>
+                </div>
+              </div>
+
+              <div 
+                className="camera-split-container"
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: showDemoInCamera ? 'minmax(0, 1.15fr) minmax(0, 1fr)' : '1fr',
+                  gap: 20,
+                  alignItems: 'start'
+                }}
+              >
+                {/* Left Column: Camera Stage, Pose Telemetry & Controls */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {stream ? (
+                    <>
+                      <div className="camera-stage">
+                        <video ref={videoRef} className="camera-view" autoPlay muted playsInline style={{ opacity: 0 }} />
+                        <div className="camera-overlay">
+                          <canvas ref={poseCanvasRef} className="pose-canvas" style={{ transform: 'none' }} aria-hidden="true"/>
+                          <div className="alignment-frame" style={{ borderColor: legColor, boxShadow: `0 0 35px ${legColor}33` }}/>
+                        </div>
+
+                        {/* Top Left: Tracking Info Badge */}
+                        <div style={{
+                          position: 'absolute',
+                          top: 10,
+                          left: 10,
+                          background: 'rgba(10, 15, 25, 0.88)',
+                          backdropFilter: 'blur(8px)',
+                          border: '1px solid rgba(255,255,255,0.15)',
+                          borderRadius: 8,
+                          padding: '5px 10px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 1,
+                          zIndex: 10
+                        }}>
+                          <span style={{ fontSize: 10.5, fontWeight: 800, color: '#ffffff', letterSpacing: '0.03em', textTransform: 'uppercase' }}>
+                            {exercise.name}
+                          </span>
+                          <span style={{ fontSize: 9, fontWeight: 700, color: legColor, textTransform: 'uppercase' }}>
+                            TARGET: {selectedLeg.toUpperCase()} LEG {patient.affectedLeg === selectedLeg ? '(OPERATIVE)' : ''}
+                          </span>
+                        </div>
+
+                        {/* Prominent Real-Time Knee Angle HUD directly on camera */}
+                        <div style={{
+                          position: 'absolute',
+                          bottom: 12,
+                          left: 12,
+                          background: 'rgba(8, 12, 22, 0.94)',
+                          backdropFilter: 'blur(10px)',
+                          border: `2px solid ${legColor}`,
+                          boxShadow: `0 0 24px ${legColor}55`,
+                          borderRadius: 12,
+                          padding: '8px 14px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 12,
+                          zIndex: 10
+                        }}>
+                          <Activity size={24} color={legColor} />
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                              <span style={{ fontSize: 32, fontWeight: 900, fontFamily: 'monospace', color: legColor, lineHeight: 1 }}>
+                                {poseState.angle !== null ? `${poseState.angle}°` : '—'}
+                              </span>
+                              <span style={{ fontSize: 10.5, fontWeight: 800, color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                {poseState.measure || 'ESTIMATED KNEE ANGLE'}
+                              </span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
+                              <span style={{ fontSize: 10.5, color: '#94a3b8' }}>
+                                Target: <strong style={{ color: '#ffffff' }}>{targetAngle !== null ? `${targetAngle}°` : '180°'}</strong>
+                              </span>
+                              {targetAngle !== null && poseState.angle !== null && (
+                                <span style={{
+                                  fontSize: 10,
+                                  fontWeight: 800,
+                                  color: Math.abs(poseState.angle - targetAngle) <= 5 ? '#10b981' : '#f59e0b',
+                                  background: Math.abs(poseState.angle - targetAngle) <= 5 ? 'rgba(16,185,129,0.2)' : 'rgba(245,158,11,0.2)',
+                                  padding: '1px 6px',
+                                  borderRadius: 4
+                                }}>
+                                  {Math.abs(poseState.angle - targetAngle) <= 5 ? '✓ ON TARGET' : `Δ ${Math.abs(poseState.angle - targetAngle)}°`}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Roo Mascot pops up ON THE CAMERA SCREEN while exercising */}
+                        <RooOnScreenExerciseCoach
+                          action={recording ? cameraMascotAction : 'jumping'}
+                          speech={cameraSpeech}
+                          soundEnabled={soundEnabled}
+                          size="sm"
+                        />
+                      </div>
+
+                      {/* Compact Bottom Bar: Status Indicator & Action Buttons */}
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 10,
+                        flexWrap: 'wrap',
+                        padding: '10px 14px',
+                        background: 'var(--bg-card-subtle)',
+                        border: '1px solid var(--border-card)',
+                        borderRadius: 12,
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span className={`pose-dot ${poseState.status}`} style={{ width: 8, height: 8 }} />
+                          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>
+                            {poseState.status === 'loading' ? 'Loading model...' :
+                             poseState.status === 'error' ? 'Pose unavailable' :
+                             poseState.status === 'searching' ? 'Searching for joint landmarks...' :
+                             '100% On-Device Pose Tracking Active'}
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                          <button 
+                            className={`btn ${recording ? 'btn-danger' : 'btn-primary'}`} 
+                            style={{ padding: '6px 14px', fontSize: 12 }} 
+                            onClick={recording ? stopRecording : recordVideo}
+                          >
+                            {recording ? (
+                              <>
+                                <span className="tag" style={{ background: '#51232a', color: '#ffb3b3' }}>REC {formattedTimer}</span>
+                                Stop & Save
+                              </>
+                            ) : (
+                              <>
+                                <Video size={14}/> Record Clip (max 30s)
+                              </>
+                            )}
+                          </button>
+                          <button 
+                            className="btn btn-quiet" 
+                            style={{ padding: '6px 14px', fontSize: 12 }} 
+                            onClick={() => { closeModal(); launchGuided(exercise); }}
+                          >
+                            <Play size={14}/> Guided Set
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="empty" style={{ minHeight: 340, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                      <Camera size={34} style={{ color: 'var(--accent-cyan)', margin: '0 auto 12px' }}/>
+                      <p>{cameraError || 'Request camera access to see live joint tracking.'}</p>
+                      {!cameraError && (
+                        <button className="btn btn-primary" onClick={() => void startCamera(exercise)} style={{ margin: '8px auto 0' }}>
+                          <Camera size={15}/> Enable camera
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {cameraError && (
+                    <div className="flag">
+                      <CircleHelp size={16}/>
+                      <span>{cameraError}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Right Column: Character Demo Guide Side-by-Side */}
+                {showDemoInCamera && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px' }}>
+                      <span className="eyebrow" style={{ color: 'var(--accent-cyan)', margin: 0 }}>
+                        <Sparkles size={12}/> Biomechanical Avatar Guide
+                      </span>
+                      <span className="small muted">Match kinematics side-by-side</span>
+                    </div>
+                    <ExerciseCharacterDemo
+                      exerciseId={exercise.id}
+                      exerciseName={exercise.name}
+                      target={exercise.target}
+                      warning={exercise.warning}
+                      cues={exercise.cues}
+                      compact={false}
+                      highlightColor={legColor}
+                    />
+                  </div>
                 )}
-                <button className="btn" onClick={() => { closeModal(); launchGuided(exercise); }}>
-                  <Play size={15}/> Use guided set
-                </button>
               </div>
             </section>
           )}
@@ -1310,6 +2276,388 @@ function App() {
         </div>
       )}
 
+      {/* Exercise Character Demo Modal */}
+      {demoModal.open && demoModal.ex && (
+        <div className="modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setDemoModal({ open: false, ex: null }); }}>
+          <section className="modal" style={{ maxWidth: 740, width: '95%' }} role="dialog" aria-modal="true" aria-labelledby="demo-modal-title">
+            <div className="modal-head">
+              <div>
+                <div className="eyebrow" style={{ color: 'var(--accent-cyan)' }}>
+                  <Sparkles size={13}/> INTERACTIVE EXERCISE DEMONSTRATION
+                </div>
+                <h2 id="demo-modal-title">{demoModal.ex.name}</h2>
+                <div className="muted small">Watch Roo's animated bio-mechanical avatar demonstrate correct posture, cadence, and knee angles.</div>
+              </div>
+              <button className="icon-button" onClick={() => setDemoModal({ open: false, ex: null })}>
+                <X size={18}/>
+              </button>
+            </div>
+
+            <div style={{ marginTop: 14 }}>
+              <ExerciseCharacterDemo
+                exerciseId={demoModal.ex.id}
+                exerciseName={demoModal.ex.name}
+                target={demoModal.ex.target}
+                warning={demoModal.ex.warning}
+                cues={demoModal.ex.cues}
+                compact={false}
+                highlightColor={legColor}
+              />
+            </div>
+
+            <div className="modal-actions" style={{ marginTop: 20, display: 'flex', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
+              <button className="btn btn-quiet" onClick={() => setDemoModal({ open: false, ex: null })}>
+                Close Demo
+              </button>
+              <button 
+                className="btn btn-primary" 
+                onClick={() => {
+                  const ex = demoModal.ex!;
+                  setDemoModal({ open: false, ex: null });
+                  launchGuided(ex);
+                }}
+              >
+                <Play size={14}/> Start Guided Set
+              </button>
+              <button 
+                className="btn btn-secondary" 
+                onClick={() => {
+                  const ex = demoModal.ex!;
+                  setDemoModal({ open: false, ex: null });
+                  void startCamera(ex);
+                }}
+              >
+                <Camera size={14}/> Practice with AI Camera
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {/* Patient Profile Full Dossier Modal */}
+      {profileModal.open && profileModal.patient && (
+        <div className="modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setProfileModal({ open: false, patient: null }); }}>
+          <section className="modal" style={{ maxWidth: 840, width: '95%', maxHeight: '92dvh' }} role="dialog" aria-modal="true" aria-labelledby="profile-modal-title">
+            <div className="modal-head">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div className="patient-avatar" style={{ width: 48, height: 48, fontSize: 18 }}>
+                  {profileModal.patient.avatar}
+                </div>
+                <div>
+                  <div className="eyebrow" style={{ color: 'var(--accent-indigo)' }}>
+                    <User size={13}/> ATHLETE CLINICAL DOSSIER
+                  </div>
+                  <h2 id="profile-modal-title" style={{ fontSize: 24, margin: '2px 0 0' }}>{profileModal.patient.name}</h2>
+                  <div className="muted small">{profileModal.patient.sport} · Age {profileModal.patient.age}</div>
+                </div>
+              </div>
+              <button className="icon-button" onClick={() => setProfileModal({ open: false, patient: null })}>
+                <X size={18}/>
+              </button>
+            </div>
+
+            {/* Quick Stats Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, margin: '14px 0' }}>
+              <div className="panel" style={{ padding: '12px 16px', background: 'var(--bg-card-subtle)' }}>
+                <div className="muted small">Current Phase</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--accent-cyan)', marginTop: 2 }}>
+                  Phase {profileModal.patient.currentPhase}
+                </div>
+                <div className="muted small">Day {profileModal.patient.currentDay} of {profileModal.patient.totalDays}</div>
+              </div>
+              <div className="panel" style={{ padding: '12px 16px', background: 'var(--bg-card-subtle)' }}>
+                <div className="muted small">Surgical Graft</div>
+                <div style={{ fontSize: 14, fontWeight: 700, marginTop: 4 }}>
+                  {profileModal.patient.graft}
+                </div>
+                <div className="muted small">Surgery: {profileModal.patient.surgeryDate}</div>
+              </div>
+              <div className="panel" style={{ padding: '12px 16px', background: 'var(--bg-card-subtle)' }}>
+                <div className="muted small">Operative Leg</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: profileModal.patient.legHighlightColor || '#00f2fe', marginTop: 2 }}>
+                  {profileModal.patient.affectedLeg?.toUpperCase() || 'RIGHT'} LEG
+                </div>
+                <div className="muted small">Adherence: {profileModal.patient.adherenceRate}%</div>
+              </div>
+              <div className="panel" style={{ padding: '12px 16px', background: 'var(--bg-card-subtle)' }}>
+                <div className="muted small">RePitch Points</div>
+                <div style={{ fontSize: 18, fontWeight: 900, color: 'var(--accent-emerald)', marginTop: 2 }}>
+                  {profileModal.patient.repitchPoints} pts
+                </div>
+                <div className="muted small">{profileModal.patient.streakDays}-day streak</div>
+              </div>
+            </div>
+
+            {/* Phase Progression Stepper Inside Profile */}
+            <div className="panel" style={{ padding: '16px 20px', margin: '14px 0', background: 'rgba(0,0,0,0.2)' }}>
+              <div className="field-title" style={{ marginBottom: 10 }}>
+                <span>Rehabilitation Phase Clearance</span>
+                <span className="mono muted">Evidence-Based Milestones</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
+                {[
+                  { phase: 1, title: 'Phase 1: Protection', weeks: 'W1–4', goal: '180° Lock, Effusion < 2+' },
+                  { phase: 2, title: 'Phase 2: Neuromuscular', weeks: 'W5–12', goal: 'Full Flexion, Quad Strength' },
+                  { phase: 3, title: 'Phase 3: Hypertrophy & Run', weeks: 'W13–20', goal: 'Jogging, LSI > 80%' },
+                  { phase: 4, title: 'Phase 4: Agility & RTS', weeks: 'W21+', goal: 'Hop Tests > 90%, Reactive Cutting' }
+                ].map((item) => {
+                  const isCurrent = profileModal.patient!.currentPhase === item.phase;
+                  const isPast = profileModal.patient!.currentPhase > item.phase;
+                  return (
+                    <div 
+                      key={item.phase}
+                      onClick={() => {
+                        updatePatientPhase(item.phase as 1 | 2 | 3 | 4);
+                        setProfileModal(prev => prev.patient ? ({ ...prev, patient: { ...prev.patient, currentPhase: item.phase as 1 | 2 | 3 | 4 } }) : prev);
+                      }}
+                      style={{
+                        padding: '10px 12px',
+                        borderRadius: 12,
+                        background: isCurrent ? 'rgba(0, 242, 254, 0.12)' : isPast ? 'rgba(16, 185, 129, 0.1)' : 'var(--bg-card-subtle)',
+                        border: isCurrent ? '1.5px solid var(--accent-cyan)' : isPast ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid var(--border-light)',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
+                      }}
+                      title={`Click to set ${profileModal.patient!.name} to Phase ${item.phase}`}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: isCurrent ? 'var(--accent-cyan)' : isPast ? '#10b981' : '#94a3b8' }}>
+                          Phase {item.phase}
+                        </span>
+                        {isPast ? <CheckCircle2 size={13} color="#10b981"/> : isCurrent ? <Sparkles size={13} color="var(--accent-cyan)"/> : null}
+                      </div>
+                      <div style={{ fontSize: 11.5, fontWeight: 600, marginTop: 3 }}>{item.title.split(': ')[1]}</div>
+                      <div className="muted small" style={{ fontSize: 10, marginTop: 2 }}>{item.weeks} · {item.goal}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Check-ins & Session Logs */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14, margin: '14px 0' }}>
+              <div className="panel" style={{ padding: '14px 16px' }}>
+                <div className="field-title" style={{ marginBottom: 8 }}>
+                  <span>Recent Check-In Logs</span>
+                  <span className="mono muted">{profileModal.patient.checkins.length} recorded</span>
+                </div>
+                <div style={{ maxHeight: 180, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {profileModal.patient.checkins.map((c, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: 'var(--bg-card-subtle)', borderRadius: 8, fontSize: 12 }}>
+                      <span className="muted">{c.date}</span>
+                      <span>Pain: <strong>{c.pain}/10</strong> · {c.swelling}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="panel" style={{ padding: '14px 16px' }}>
+                <div className="field-title" style={{ marginBottom: 8 }}>
+                  <span>Completed Guided Sessions</span>
+                  <span className="mono muted">{profileModal.patient.sessions.length} logged</span>
+                </div>
+                <div style={{ maxHeight: 180, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {profileModal.patient.sessions.length ? (
+                    profileModal.patient.sessions.map((s, i) => (
+                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: 'var(--bg-card-subtle)', borderRadius: 8, fontSize: 12 }}>
+                        <span style={{ fontWeight: 600 }}>{s.exercise}</span>
+                        <span className="mono muted">{s.time}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="muted small" style={{ padding: 12, textAlign: 'center' }}>No sessions logged yet.</div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Clinician Notes */}
+            <div className="step-box" style={{ margin: '14px 0' }}>
+              <div className="eyebrow" style={{ color: 'var(--accent-indigo)' }}>PHYSIOTHERAPIST CLINICAL DIRECTIVE</div>
+              <p style={{ margin: '4px 0 0', fontSize: 13 }}>"{profileModal.patient.clinicianNotes}"</p>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="modal-actions" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 18, flexWrap: 'wrap', gap: 10 }}>
+              <button 
+                className="btn btn-danger" 
+                onClick={() => {
+                  handleDeletePatient(profileModal.patient!.id);
+                }}
+              >
+                <Trash2 size={14}/> Delete Patient
+              </button>
+
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button className="btn btn-quiet" onClick={() => setProfileModal({ open: false, patient: null })}>
+                  Close Dossier
+                </button>
+                <button 
+                  className="btn btn-primary" 
+                  onClick={() => {
+                    switchToPatientPortal(profileModal.patient!.id);
+                  }}
+                >
+                  <ExternalLink size={14}/> Open in Patient Portal
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {/* Register New Patient Modal */}
+      {addPatientModal && (
+        <div className="modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setAddPatientModal(false); }}>
+          <section className="modal" style={{ maxWidth: 640, width: '95%' }} role="dialog" aria-modal="true" aria-labelledby="add-pt-title">
+            <div className="modal-head">
+              <div>
+                <div className="eyebrow" style={{ color: 'var(--accent-emerald)' }}>
+                  <Users size={13}/> CLINICAL INTAKE TOOL
+                </div>
+                <h2 id="add-pt-title">Register New Athlete / Patient</h2>
+                <div className="muted small">Add a new patient profile into your active rehabilitation caseload.</div>
+              </div>
+              <button className="icon-button" onClick={() => setAddPatientModal(false)}>
+                <X size={18}/>
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label className="field-title">Athlete Full Name *</label>
+                <input 
+                  className="form-input" 
+                  value={newPatientName} 
+                  onChange={(e) => setNewPatientName(e.target.value)} 
+                  placeholder="e.g. Liam Davies"
+                  autoFocus
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label className="field-title">Sport & Position</label>
+                  <input 
+                    className="form-input" 
+                    value={newPatientSport} 
+                    onChange={(e) => setNewPatientSport(e.target.value)} 
+                    placeholder="e.g. Soccer (Central Midfielder)"
+                  />
+                </div>
+                <div>
+                  <label className="field-title">Age</label>
+                  <input 
+                    type="number"
+                    min="12"
+                    max="75"
+                    className="form-input" 
+                    value={newPatientAge} 
+                    onChange={(e) => setNewPatientAge(Number(e.target.value))} 
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label className="field-title">Surgical Graft Type</label>
+                  <select 
+                    className="form-input"
+                    value={newPatientGraft}
+                    onChange={(e) => setNewPatientGraft(e.target.value)}
+                  >
+                    <option value="Bone-Patellar Tendon-Bone (BPTB)">Bone-Patellar Tendon-Bone (BPTB)</option>
+                    <option value="Hamstring Tendon Autograft">Hamstring Tendon Autograft</option>
+                    <option value="Quadriceps Tendon Autograft">Quadriceps Tendon Autograft</option>
+                    <option value="Allograft (Donor Tendon)">Allograft (Donor Tendon)</option>
+                    <option value="Conservative (Non-Surgical)">Conservative (Non-Surgical)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="field-title">Surgery / Injury Date</label>
+                  <input 
+                    className="form-input" 
+                    value={newPatientSurgeryDate} 
+                    onChange={(e) => setNewPatientSurgeryDate(e.target.value)} 
+                    placeholder="e.g. Oct 14, 2026"
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label className="field-title">Operative Leg</label>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={() => setNewPatientLeg('left')}
+                      style={{
+                        flex: 1,
+                        background: newPatientLeg === 'left' ? 'var(--accent-emerald)' : 'var(--bg-card-subtle)',
+                        color: newPatientLeg === 'left' ? '#000000' : 'var(--text-secondary)',
+                        fontWeight: 700,
+                        border: '1px solid var(--border-light)'
+                      }}
+                    >
+                      Left Leg
+                    </button>
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={() => setNewPatientLeg('right')}
+                      style={{
+                        flex: 1,
+                        background: newPatientLeg === 'right' ? 'var(--accent-emerald)' : 'var(--bg-card-subtle)',
+                        color: newPatientLeg === 'right' ? '#000000' : 'var(--text-secondary)',
+                        fontWeight: 700,
+                        border: '1px solid var(--border-light)'
+                      }}
+                    >
+                      Right Leg
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="field-title">Initial Recovery Phase</label>
+                  <select 
+                    className="form-input"
+                    value={newPatientPhase}
+                    onChange={(e) => setNewPatientPhase(Number(e.target.value) as 1 | 2 | 3 | 4)}
+                  >
+                    <option value={1}>Phase 1: Acute Protection (Weeks 1–4)</option>
+                    <option value={2}>Phase 2: Neuromuscular Control (Weeks 5–12)</option>
+                    <option value={3}>Phase 3: Hypertrophy & Jogging (Weeks 13–20)</option>
+                    <option value={4}>Phase 4: Sport Agility & RTS (Weeks 21+)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="field-title">Initial Physiotherapy Directives</label>
+                <textarea 
+                  rows={2} 
+                  className="form-input" 
+                  value={newPatientNotes} 
+                  onChange={(e) => setNewPatientNotes(e.target.value)} 
+                  placeholder="Clinical guidelines, weight-bearing limits, or graft considerations."
+                />
+              </div>
+
+              <div className="modal-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 14 }}>
+                <button className="btn btn-quiet" onClick={() => setAddPatientModal(false)}>
+                  Cancel
+                </button>
+                <button className="btn btn-primary" onClick={handleCreatePatient}>
+                  <Check size={16}/> Register Athlete
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
+
       {/* Floating Modern Toast */}
       {toast && (
         <div className="toast" role="status">
@@ -1317,6 +2665,18 @@ function App() {
           <span>{toast}</span>
         </div>
       )}
+
+      {/* Duolingo-style Roo Mascot Pop-up Between Exercises */}
+      <RooBetweenExercisePopup
+        open={betweenExerciseModal.open}
+        onClose={() => setBetweenExerciseModal({ open: false, completedEx: null, nextEx: null })}
+        completedExercise={betweenExerciseModal.completedEx}
+        nextExercise={betweenExerciseModal.nextEx}
+        onStartNext={(nextItem) => launchGuided(nextItem)}
+        onRepeatCurrent={(currItem) => launchGuided(currItem)}
+        soundEnabled={soundEnabled}
+        onSoundTrigger={(action, quote) => triggerMascotReaction(action, quote, soundEnabled)}
+      />
     </div>
   );
 }
@@ -1328,11 +2688,20 @@ function PatientView(props: {
   sleep: string; setSleep: (s: string) => void;
   saveCheckin: () => void; saved: boolean; 
   launchGuided: (e: Exercise) => void; startCamera: (e: Exercise) => void;
-  videoUrl: string; videoMeta: VideoMeta | null;
+  openDemo: (e: Exercise) => void;
+  clips: VideoClipEntry[];
+  selectedClipId: string | null;
+  setSelectedClipId: (id: string) => void;
+  downloadClip: (clip: VideoClipEntry) => void;
+  deleteClip: (clipId: string) => void;
 }) {
-  const { patient, pain, setPain, swelling, setSwelling, sleep, setSleep, saveCheckin, saved, launchGuided, startCamera, videoUrl, videoMeta } = props;
+  const { 
+    patient, pain, setPain, swelling, setSwelling, sleep, setSleep, 
+    saveCheckin, saved, launchGuided, startCamera, openDemo,
+    clips, selectedClipId, setSelectedClipId, downloadClip, deleteClip
+  } = props;
   const [rooCompanionSpeech, setRooCompanionSpeech] = useState<string>('');
-  const [rooCompanionMood, setRooCompanionMood] = useState<'idle' | 'cheering' | 'wondering'>('idle');
+  const [rooCompanionAction, setRooCompanionAction] = useState<MascotAction>('idle');
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
@@ -1565,6 +2934,9 @@ function PatientView(props: {
                       <button className="btn btn-quiet" onClick={() => void startCamera(item)}>
                         <Camera size={13}/> AI Camera
                       </button>
+                      <button className="btn btn-quiet" onClick={() => openDemo(item)} title="Watch animated character demo">
+                        <Sparkles size={13} style={{ color: 'var(--accent-cyan)' }}/> Character Demo
+                      </button>
                     </div>
                   </div>
                 </article>
@@ -1596,12 +2968,14 @@ function PatientView(props: {
                   type="button"
                   className="roo-sound-toggle-btn"
                   onClick={() => {
-                    const quotes = ROO_LINES.greetings;
+                    const actions: MascotAction[] = ['clapping', 'jumping', 'party', 'streak'];
+                    const act = actions[Math.floor(Math.random() * actions.length)];
+                    const quotes = MOTIVATIONAL_ROO_QUOTES.betweenExercises;
                     const quote = quotes[Math.floor(Math.random() * quotes.length)];
                     setRooCompanionSpeech(quote);
-                    speakRoo(quote, true);
-                    setRooCompanionMood('cheering');
-                    setTimeout(() => setRooCompanionMood('idle'), 3500);
+                    triggerMascotReaction(act, quote, true);
+                    setRooCompanionAction(act);
+                    setTimeout(() => setRooCompanionAction('idle'), 4000);
                   }}
                   title="Hear Roo's voice"
                 >
@@ -1613,16 +2987,18 @@ function PatientView(props: {
             <div className="roo-art" style={{ width: 140, height: 140, overflow: 'visible' }}>
               <RooMascot
                 size="md"
-                mood={rooCompanionMood}
+                action={rooCompanionAction}
                 speech={rooCompanionSpeech}
-                showSparkles={rooCompanionMood === 'cheering'}
+                showSparkles={rooCompanionAction === 'jumping' || rooCompanionAction === 'party'}
                 onClick={() => {
-                  const quotes = ROO_LINES.greetings;
+                  const actions: MascotAction[] = ['clapping', 'jumping', 'party', 'streak'];
+                  const act = actions[Math.floor(Math.random() * actions.length)];
+                  const quotes = MOTIVATIONAL_ROO_QUOTES.betweenExercises;
                   const quote = quotes[Math.floor(Math.random() * quotes.length)];
                   setRooCompanionSpeech(quote);
-                  speakRoo(quote, true);
-                  setRooCompanionMood('cheering');
-                  setTimeout(() => setRooCompanionMood('idle'), 3500);
+                  triggerMascotReaction(act, quote, true);
+                  setRooCompanionAction(act);
+                  setTimeout(() => setRooCompanionAction('idle'), 4000);
                 }}
               />
             </div>
@@ -1661,25 +3037,20 @@ function PatientView(props: {
               </div>
             )}
           </section>
-
-          {/* Video Player */}
-          {videoUrl && (
-            <section className="panel video-box">
-              <div className="section-head">
-                <div>
-                  <h2>Recorded Camera Clip</h2>
-                  <p>Local clip · {videoMeta?.exercise || 'Exercise'}</p>
-                </div>
-                <Video size={18} color="var(--accent-cyan)"/>
-              </div>
-              <video controls src={videoUrl} style={{ width: '100%', borderRadius: 12 }}/>
-              <div className="muted small" style={{ marginTop: 8 }}>
-                {videoMeta?.at ? dateTime(videoMeta.at) : 'Saved locally'} · {videoMeta?.duration ?? 0}s · not uploaded
-              </div>
-            </section>
-          )}
         </aside>
       </div>
+
+      {/* Stacked Video & Joint Telemetry Playlist */}
+      <VideoPlaylistExplorer
+        clips={clips}
+        selectedClipId={selectedClipId}
+        setSelectedClipId={setSelectedClipId}
+        downloadClip={downloadClip}
+        deleteClip={deleteClip}
+        title="Recorded Session Video Playlist"
+        subtitle="On-device recorded exercise clips stacked one after another with real-time knee joint telemetry. Save or delete any clip."
+        userRole="patient"
+      />
     </>
   );
 }
@@ -1837,19 +3208,27 @@ function ClinicianView(props: {
   latest: Entry;
   flags: Entry[];
   exportReport: () => void;
-  videoUrl: string;
-  videoMeta: VideoMeta | null;
-  videoPlaybackTime: number;
-  setVideoPlaybackTime: (time: number) => void;
+  clips: VideoClipEntry[];
+  selectedClipId: string | null;
+  setSelectedClipId: (id: string) => void;
+  downloadClip: (clip: VideoClipEntry) => void;
+  deleteClip: (clipId: string) => void;
   openAddExercise: () => void;
   openEditExercise: (ex: Exercise) => void;
   deleteExercise: (exId: string) => void;
+  openDemo: (ex: Exercise) => void;
   updatePatientNotes: (notes: string) => void;
+  updatePatientPhase: (newPhase: 1 | 2 | 3 | 4) => void;
+  openAddPatient: () => void;
+  deletePatient: (id: string) => void;
+  openProfile: (p: Patient) => void;
+  switchToPatientPortal: (id: string) => void;
 }) {
   const { 
     patients, selectedPatientId, setSelectedPatientId, patient, latest, flags, 
-    exportReport, videoUrl, videoMeta, videoPlaybackTime, setVideoPlaybackTime,
-    openAddExercise, openEditExercise, deleteExercise, updatePatientNotes
+    exportReport, clips, selectedClipId, setSelectedClipId, downloadClip, deleteClip,
+    openAddExercise, openEditExercise, deleteExercise, openDemo, updatePatientNotes,
+    updatePatientPhase, openAddPatient, deletePatient, openProfile, switchToPatientPortal
   } = props;
 
   const [notesEdit, setNotesEdit] = useState(patient.clinicianNotes);
@@ -1860,8 +3239,6 @@ function ClinicianView(props: {
   }, [patient]);
 
   const summary = `Patient ${patient.name} (${patient.sport}) is on Day ${patient.currentDay} of Phase ${patient.currentPhase}. Total check-ins recorded: ${patient.checkins.length}. Latest pain: ${latest?.pain ?? 'N/A'}/10 with ${latest?.swelling?.toLowerCase() ?? 'no'} joint effusion. Adherence score is ${patient.adherenceRate}%.`;
-  const angleSamples = videoMeta?.telemetry?.filter((sample) => sample.angle !== null) ?? [];
-  const currentSample = angleSamples.reduce<TelemetryPoint | null>((closest, sample) => !closest || Math.abs(sample.t - videoPlaybackTime) < Math.abs(closest.t - videoPlaybackTime) ? sample : closest, null);
 
   return (
     <>
@@ -1873,26 +3250,36 @@ function ClinicianView(props: {
           </div>
           <h1>Physiotherapist Clinical Dashboard</h1>
           <div className="muted">
-            Manage multi-athlete recovery journeys, alter prescribed exercises, and inspect on-device telemetry.
+            Manage multi-athlete recovery journeys, clear rehabilitation phases, and inspect on-device telemetry.
           </div>
         </div>
-        <button className="btn btn-primary" onClick={exportReport} data-testid="button-export-report">
-          <Download size={15}/> Export Patient CSV Report
-        </button>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <button className="btn btn-quiet" onClick={openAddPatient}>
+            <Plus size={15}/> Add New Patient
+          </button>
+          <button className="btn btn-primary" onClick={exportReport} data-testid="button-export-report">
+            <Download size={15}/> Export Patient CSV Report
+          </button>
+        </div>
       </div>
 
       {/* Patient Switcher Panel */}
       <div className="panel patient-selector-panel">
-        <div>
-          <div className="eyebrow" style={{ color: 'var(--accent-indigo)' }}>
-            <Users size={13}/> SELECT ACTIVE PATIENT ({patients.length} ATHLETES IN CARE)
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <div className="eyebrow" style={{ color: 'var(--accent-indigo)' }}>
+              <Users size={13}/> SELECT ACTIVE PATIENT ({patients.length} ATHLETES IN CASELOAD)
+            </div>
+            <p className="muted small" style={{ margin: '4px 0 0' }}>
+              Select any athlete below to inspect joint telemetry, clear rehabilitation phases, or alter exercises.
+            </p>
           </div>
-          <p className="muted small" style={{ margin: '4px 0 0' }}>
-            Click on any patient below to switch records, review progress, and alter their exercise protocol.
-          </p>
+          <button className="btn btn-primary" onClick={openAddPatient} style={{ padding: '7px 14px', fontSize: 12.5 }}>
+            <Plus size={14}/> Register New Patient
+          </button>
         </div>
 
-        <div className="patient-chips">
+        <div className="patient-chips" style={{ marginTop: 14 }}>
           {patients.map((p) => {
             const isSelected = p.id === selectedPatientId;
             return (
@@ -1900,12 +3287,25 @@ function ClinicianView(props: {
                 key={p.id}
                 className={`patient-chip ${isSelected ? 'active' : ''}`}
                 onClick={() => setSelectedPatientId(p.id)}
+                style={{ display: 'flex', alignItems: 'center', gap: 10 }}
               >
                 <div className="patient-avatar">{p.avatar}</div>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: 13 }}>{p.name}</div>
-                  <div className="muted small" style={{ fontSize: 11 }}>Phase {p.currentPhase} · Day {p.currentDay}</div>
+                  <div className="muted small" style={{ fontSize: 11 }}>Phase {p.currentPhase} · {p.sport.split(' ')[0]}</div>
                 </div>
+                <button 
+                  type="button" 
+                  className="icon-button" 
+                  style={{ width: 26, height: 26, marginLeft: 4, borderRadius: 6, opacity: 0.8 }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openProfile(p);
+                  }}
+                  title={`View ${p.name}'s Profile Dossier`}
+                >
+                  <User size={12}/>
+                </button>
               </div>
             );
           })}
@@ -1915,23 +3315,119 @@ function ClinicianView(props: {
       {/* Selected Patient Banner */}
       <div className="panel" style={{ padding: '22px 26px', marginBottom: 24, background: 'linear-gradient(135deg, var(--bg-card), var(--bg-card-subtle))' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <h2 style={{ fontSize: 26, margin: 0 }}>{patient.name}</h2>
-              <span className="tag tag-cyan">Phase {patient.currentPhase} Active</span>
+          <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+            <div className="patient-avatar" style={{ width: 54, height: 54, fontSize: 20 }}>
+              {patient.avatar}
             </div>
-            <div className="muted small" style={{ marginTop: 6, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-              <span>Age: <strong>{patient.age}</strong></span>
-              <span>Sport: <strong>{patient.sport}</strong></span>
-              <span>Graft: <strong>{patient.graft}</strong></span>
-              <span>Surgery Date: <strong>{patient.surgeryDate}</strong></span>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <h2 style={{ fontSize: 26, margin: 0 }}>{patient.name}</h2>
+                <span className="tag tag-cyan" style={{ fontSize: 11 }}>Phase {patient.currentPhase} Active</span>
+              </div>
+              <div className="muted small" style={{ marginTop: 6, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                <span>Age: <strong>{patient.age}</strong></span>
+                <span>Sport: <strong>{patient.sport}</strong></span>
+                <span>Graft: <strong>{patient.graft}</strong></span>
+                <span>Operative: <strong style={{ color: patient.legHighlightColor || 'var(--accent-cyan)' }}>{patient.affectedLeg?.toUpperCase() || 'RIGHT'} LEG</strong></span>
+                <span>Surgery: <strong>{patient.surgeryDate}</strong></span>
+              </div>
             </div>
           </div>
-          <div style={{ textAlign: 'right' }}>
-            <span className="mono" style={{ fontSize: 28, fontWeight: 900, color: 'var(--accent-cyan)' }}>
-              {patient.adherenceRate}%
-            </span>
-            <div className="muted small">Rehab Adherence Score</div>
+
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            <button className="btn btn-quiet" onClick={() => openProfile(patient)}>
+              <User size={14}/> View Full Profile
+            </button>
+            <button className="btn btn-quiet" onClick={() => switchToPatientPortal(patient.id)}>
+              <ExternalLink size={14}/> Open in Patient View
+            </button>
+            <button 
+              className="btn btn-danger" 
+              onClick={() => deletePatient(patient.id)}
+              title="Delete / Discharge athlete from care"
+            >
+              <Trash2 size={14}/> Delete
+            </button>
+          </div>
+        </div>
+
+        {/* CLINICIAN PHASE PROGRESSION & CLEARANCE SELECTOR */}
+        <div style={{ marginTop: 20, paddingTop: 18, borderTop: '1px solid var(--border-light)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+            <div className="eyebrow" style={{ color: 'var(--accent-emerald)', margin: 0 }}>
+              <ShieldAlert size={12}/> CLINICIAN PHASE CLEARANCE (CLICK TO CHANGE OR PROMOTE PHASE)
+            </div>
+            <span className="small muted">Evidence-based recovery progression · 1-click update</span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 10 }}>
+            {[
+              {
+                phase: 1,
+                title: 'Phase 1: Protection & Mobility',
+                weeks: 'Weeks 1–4',
+                criteria: 'Terminal lock 180°, effusion < 2+',
+                exercises: 'Quad Sets, SLR, Heel Slides, Patellar Mob'
+              },
+              {
+                phase: 2,
+                title: 'Phase 2: Neuromuscular Control',
+                weeks: 'Weeks 5–12',
+                criteria: 'Full flexion 120°+, quad LSI > 70%',
+                exercises: 'Wall Sits, Step-Ups, Cycling'
+              },
+              {
+                phase: 3,
+                title: 'Phase 3: Strength & Running',
+                weeks: 'Weeks 13–20',
+                criteria: 'LSI > 80%, pain-free jog, box stick landing',
+                exercises: 'Bulgarian Split Squats, Box Jumps, Jogging'
+              },
+              {
+                phase: 4,
+                title: 'Phase 4: Sport Agility & RTS',
+                weeks: 'Weeks 21–28+',
+                criteria: 'Hop tests > 90% LSI, reactive agility clearance',
+                exercises: '45° Cutting, Skater Bounds, Deceleration'
+              }
+            ].map((pItem) => {
+              const isActive = patient.currentPhase === pItem.phase;
+              const isPast = patient.currentPhase > pItem.phase;
+              return (
+                <div 
+                  key={pItem.phase}
+                  onClick={() => updatePatientPhase(pItem.phase as 1 | 2 | 3 | 4)}
+                  style={{
+                    padding: '12px 14px',
+                    borderRadius: 14,
+                    background: isActive ? 'rgba(0, 242, 254, 0.12)' : isPast ? 'rgba(16, 185, 129, 0.08)' : 'var(--bg-card-subtle)',
+                    border: isActive ? '2px solid var(--accent-cyan)' : isPast ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid var(--border-light)',
+                    cursor: 'pointer',
+                    boxShadow: isActive ? '0 0 16px rgba(0, 242, 254, 0.2)' : 'none',
+                    transition: 'all 0.2s ease',
+                  }}
+                  title={`Click to set ${patient.name} to Phase ${pItem.phase}`}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 11, fontWeight: 800, color: isActive ? 'var(--accent-cyan)' : isPast ? '#10b981' : '#94a3b8' }}>
+                      PHASE {pItem.phase} {isActive ? '• ACTIVE' : isPast ? '• COMPLETED' : ''}
+                    </span>
+                    {isActive ? (
+                      <span className="tag" style={{ background: 'var(--accent-cyan)', color: '#000000', fontSize: 9.5, fontWeight: 800, padding: '1px 6px' }}>CURRENT</span>
+                    ) : isPast ? (
+                      <CheckCircle2 size={13} color="#10b981"/>
+                    ) : (
+                      <span className="muted small" style={{ fontSize: 10 }}>Click to set</span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 13, fontWeight: 700, marginTop: 4 }}>{pItem.title.split(': ')[1]}</div>
+                  <div className="muted small" style={{ fontSize: 10.5, marginTop: 2 }}>{pItem.weeks} · {pItem.criteria}</div>
+                  <div style={{ fontSize: 10, color: 'var(--accent-cyan)', marginTop: 4 }}>
+                    Exercises: {pItem.exercises}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
 
@@ -2014,6 +3510,9 @@ function ClinicianView(props: {
               </div>
 
               <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn btn-quiet" style={{ padding: '6px 12px', fontSize: 11.5 }} onClick={() => openDemo(ex)} title="Preview animated character demo">
+                  <Sparkles size={13} style={{ color: 'var(--accent-cyan)' }}/> Demo
+                </button>
                 <button className="btn btn-quiet" style={{ padding: '6px 12px', fontSize: 11.5 }} onClick={() => openEditExercise(ex)}>
                   <Edit3 size={13}/> Alter / Edit
                 </button>
@@ -2136,97 +3635,87 @@ function ClinicianView(props: {
         </section>
       </div>
 
-      {/* Video & Telemetry Explorer */}
-      <section className="panel video-box" style={{ marginTop: 24 }}>
-        <div className="section-head">
-          <div>
-            <h2>Session Video & Joint Telemetry</h2>
-            <p>On-device recorded clip with synchronized 2D joint angle estimates.</p>
-          </div>
-          <Video size={18} color="var(--accent-cyan)"/>
-        </div>
-
-        {videoUrl && videoMeta ? (
-          <div className="clinician-grid">
-            <video 
-              controls 
-              src={videoUrl} 
-              onTimeUpdate={(event) => setVideoPlaybackTime(event.currentTarget.currentTime)} 
-              style={{ width: '100%', borderRadius: 14, maxHeight: 340, background: '#000000' }}
-            />
-            <div>
-              <div className="eyebrow">TELEMETRY ANALYSIS</div>
-              <h3 style={{ fontSize: 18, margin: '6px 0 2px' }}>{videoMeta.exercise}</h3>
-              <p className="muted small">{dateTime(videoMeta.at)}</p>
-              <div className="notice" style={{ margin: '12px 0' }}>
-                <Clock3 size={14} style={{ flexShrink: 0 }}/>
-                <span>Clip Duration: {videoMeta.duration}s · Playback Time: {videoPlaybackTime.toFixed(1)}s</span>
-              </div>
-
-              {angleSamples.length ? (
-                <>
-                  <div className="pose-readout" style={{ marginTop: 14 }}>
-                    <strong>Nearest Angle Estimate</strong>
-                    <span className="mono pose-angle">
-                      {currentSample?.angle ?? '—'}° 
-                      <small>{currentSample?.measure} · {currentSample?.t.toFixed(1)}s</small>
-                    </span>
-                  </div>
-                  <div className="telemetry-list">
-                    <div className="field-title" style={{ margin: '14px 0 6px' }}>
-                      <span>Angle Samples Timeline</span>
-                      <span className="mono muted">{angleSamples.length} points</span>
-                    </div>
-                    {angleSamples.map((sample, index) => (
-                      <div 
-                        className={`telemetry-row ${sample === currentSample ? 'active' : ''}`} 
-                        key={`${sample.t}-${index}`}
-                      >
-                        <span className="mono muted">{sample.t.toFixed(1)}s</span>
-                        <span style={{ fontWeight: 600 }}>
-                          {sample.angle}° <small className="muted">{sample.measure}</small>
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <div className="notice" style={{ marginTop: 14 }}>
-                  No joint angle samples available.
-                </div>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="empty">
-            <Video size={32} style={{ color: 'var(--accent-cyan)', margin: '0 auto 12px' }}/>
-            <p>No recorded session clip is stored on this device.</p>
-            <span className="small muted">Patients can capture a local 30-second guided clip from the camera flow.</span>
-          </div>
-        )}
-      </section>
+      {/* Video & Telemetry Stacked Playlist */}
+      <VideoPlaylistExplorer
+        clips={clips}
+        selectedClipId={selectedClipId}
+        setSelectedClipId={setSelectedClipId}
+        downloadClip={downloadClip}
+        deleteClip={deleteClip}
+        title="Patient Session Video & Telemetry Playlist"
+        subtitle="On-device recorded exercise clips stacked one after another with synchronized 2D joint angle telemetry. Physio and patient can save or delete any clip."
+        userRole="clinician"
+      />
     </>
   );
+}
+
+export interface RawVideoClipRecord {
+  id: string;
+  patientId: string;
+  at: string;
+  exercise: string;
+  duration: number;
+  blob: Blob;
+  telemetry: TelemetryPoint[];
 }
 
 function openVideoDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     if (!('indexedDB' in window)) { reject(new Error('IndexedDB unavailable')); return; }
-    const request = indexedDB.open('repitch-local-media', 1);
-    request.onupgradeneeded = () => request.result.createObjectStore('clips');
+    const request = indexedDB.open('repitch-clips-playlist-v1', 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains('clips_stack')) {
+        db.createObjectStore('clips_stack', { keyPath: 'id' });
+      }
+    };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
   });
 }
 
-async function saveVideo(blob: Blob, meta: { at: string; exercise: string; duration: number }) {
+async function saveVideoClip(record: RawVideoClipRecord): Promise<void> {
   const db = await openVideoDb();
-  await new Promise<void>((resolve, reject) => {
-    const tx = db.transaction('clips', 'readwrite');
-    tx.objectStore('clips').put({ blob, meta }, 'latest');
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction('clips_stack', 'readwrite');
+    tx.objectStore('clips_stack').put(record);
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
+}
+
+async function loadAllVideoClips(): Promise<RawVideoClipRecord[]> {
+  try {
+    const db = await openVideoDb();
+    return new Promise<RawVideoClipRecord[]>((resolve, reject) => {
+      const tx = db.transaction('clips_stack', 'readonly');
+      const store = tx.objectStore('clips_stack');
+      const request = store.getAll();
+      request.onsuccess = () => {
+        const results = (request.result || []) as RawVideoClipRecord[];
+        results.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+        resolve(results);
+      };
+      request.onerror = () => reject(request.error);
+    });
+  } catch {
+    return [];
+  }
+}
+
+async function deleteVideoClipFromDb(id: string): Promise<void> {
+  try {
+    const db = await openVideoDb();
+    return new Promise<void>((resolve, reject) => {
+      const tx = db.transaction('clips_stack', 'readwrite');
+      tx.objectStore('clips_stack').delete(id);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch {
+    // ignore
+  }
 }
 
 export default App;
