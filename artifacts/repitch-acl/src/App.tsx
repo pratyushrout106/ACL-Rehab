@@ -340,6 +340,14 @@ function App() {
   const [videoMeta, setVideoMeta] = useState<VideoMeta | null>(null);
   const [videoPlaybackTime, setVideoPlaybackTime] = useState(0);
 
+  // Selected Leg & Knee Highlight Color for ACL telemetry
+  const [selectedLeg, setSelectedLeg] = useState<'left' | 'right'>(patient.affectedLeg || 'left');
+  const [legColor, setLegColor] = useState<string>(patient.legHighlightColor || '#10b981');
+  const selectedLegRef = useRef<'left' | 'right'>(selectedLeg);
+  selectedLegRef.current = selectedLeg;
+  const legColorRef = useRef<string>(legColor);
+  legColorRef.current = legColor;
+
   // Mascot Roo coaching state
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [guidedSpeech, setGuidedSpeech] = useState<string>(ROO_LINES.greetings[0]);
@@ -372,11 +380,13 @@ function App() {
   useEffect(() => { localStorage.setItem(STORAGE.selectedPatientId, JSON.stringify(selectedPatientId)); }, [selectedPatientId]);
   useEffect(() => { localStorage.setItem(STORAGE.role, JSON.stringify(role)); }, [role]);
 
-  // Keep active exercise in sync when patient changes
+  // Keep active exercise, leg and color in sync when patient changes
   useEffect(() => {
     if (patient.prescribedExercises.length > 0 && !patient.prescribedExercises.some((e) => e.id === exercise.id)) {
       setExercise(patient.prescribedExercises[0]);
     }
+    if (patient.affectedLeg) setSelectedLeg(patient.affectedLeg);
+    if (patient.legHighlightColor) setLegColor(patient.legHighlightColor);
   }, [patient]);
 
   const updateCurrentPatient = (updater: (prev: Patient) => Patient) => {
@@ -480,7 +490,7 @@ function App() {
         poseLandmarkerRef.current = landmarker;
         setPoseState({ status: 'searching', angle: null, measure: 'joint angle', message: 'Position your working leg in view.' });
 
-        const drawPose = (landmarks: NormalizedLandmark[] | undefined) => {
+        const drawPose = (landmarks: NormalizedLandmark[] | undefined, activeAngle: number | null, now: number) => {
           const canvas = poseCanvasRef.current;
           const video = videoRef.current;
           if (!canvas || !video || !video.videoWidth || !video.videoHeight) return;
@@ -490,57 +500,356 @@ function App() {
             canvas.width = width;
             canvas.height = height;
           }
-          const context = canvas.getContext('2d');
-          if (!context) return;
-          context.clearRect(0, 0, width, height);
-          if (!landmarks) return;
-          const connections = PoseLandmarker.POSE_CONNECTIONS;
-          context.lineWidth = Math.max(2.5, width / 160);
-          context.strokeStyle = '#00f2fe';
-          context.fillStyle = '#d8ffff';
-          for (const { start: from, end: to } of connections) {
-            const a = landmarks[from];
-            const b = landmarks[to];
-            if (!a || !b || (a.visibility ?? 0) < 0.4 || (b.visibility ?? 0) < 0.4) continue;
-            context.beginPath();
-            context.moveTo(a.x * width, a.y * height);
-            context.lineTo(b.x * width, b.y * height);
-            context.stroke();
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return;
+
+          // 1. Draw mirrored video frame directly onto canvas
+          ctx.save();
+          ctx.translate(width, 0);
+          ctx.scale(-1, 1);
+          ctx.drawImage(video, 0, 0, width, height);
+          ctx.restore();
+
+          const isLeft = selectedLegRef.current === 'left';
+          const chosenColor = legColorRef.current;
+          const otherColor = 'rgba(148, 163, 184, 0.4)';
+          const upperBodyColor = 'rgba(56, 189, 248, 0.35)';
+
+          // Helper to map normalized landmark to mirrored canvas coordinates
+          const toCanvas = (p?: NormalizedLandmark) => {
+            if (!p) return null;
+            return { x: (1 - p.x) * width, y: p.y * height, vis: p.visibility ?? 0 };
+          };
+
+          // 2. Broadcast Telemetry HUD Banner (Top Left)
+          ctx.save();
+          ctx.fillStyle = 'rgba(10, 15, 25, 0.82)';
+          if (typeof ctx.roundRect === 'function') {
+            ctx.beginPath();
+            ctx.roundRect(16, 16, Math.min(380, width - 32), 48, 10);
+            ctx.fill();
+          } else {
+            ctx.fillRect(16, 16, Math.min(380, width - 32), 48);
           }
-          for (const point of landmarks) {
-            if ((point.visibility ?? 0) < 0.5) continue;
-            context.beginPath();
-            context.arc(point.x * width, point.y * height, Math.max(2.5, width / 140), 0, Math.PI * 2);
-            context.fill();
+          ctx.strokeStyle = chosenColor;
+          ctx.lineWidth = 1.5;
+          if (typeof ctx.roundRect === 'function') {
+            ctx.beginPath();
+            ctx.roundRect(16, 16, Math.min(380, width - 32), 48, 10);
+            ctx.stroke();
+          } else {
+            ctx.strokeRect(16, 16, Math.min(380, width - 32), 48);
+          }
+
+          ctx.fillStyle = '#ffffff';
+          ctx.font = '700 12.5px Inter, system-ui, sans-serif';
+          ctx.fillText(exercise.name.toUpperCase(), 28, 35);
+
+          ctx.fillStyle = chosenColor;
+          ctx.font = '600 11px Inter, monospace';
+          const legTag = isLeft ? 'LEFT LEG (OPERATIVE)' : 'RIGHT LEG (OPERATIVE)';
+          ctx.fillText(`TARGET: ${legTag}`, 28, 51);
+
+          // Recording indicator in HUD
+          if (recordingRef.current) {
+            const rx = width - 95;
+            ctx.fillStyle = 'rgba(239, 68, 68, 0.9)';
+            if (typeof ctx.roundRect === 'function') {
+              ctx.beginPath();
+              ctx.roundRect(rx, 16, 80, 36, 8);
+              ctx.fill();
+            } else {
+              ctx.fillRect(rx, 16, 80, 36);
+            }
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '700 12px Inter, sans-serif';
+            ctx.fillText('● REC', rx + 17, 39);
+          }
+          ctx.restore();
+
+          if (!landmarks) return;
+
+          // 3. Upper body connections (subtle wireframe)
+          const upperConns: [number, number][] = [
+            [11, 12], [11, 13], [13, 15], [12, 14], [14, 16],
+            [11, 23], [12, 24], [23, 24]
+          ];
+          ctx.save();
+          ctx.lineWidth = Math.max(2, width / 240);
+          ctx.strokeStyle = upperBodyColor;
+          for (const [from, to] of upperConns) {
+            const a = toCanvas(landmarks[from]);
+            const b = toCanvas(landmarks[to]);
+            if (a && b && a.vis >= 0.35 && b.vis >= 0.35) {
+              ctx.beginPath();
+              ctx.moveTo(a.x, a.y);
+              ctx.lineTo(b.x, b.y);
+              ctx.stroke();
+            }
+          }
+          ctx.restore();
+
+          // 4. Non-chosen Leg (Healthy leg in subtle dimmed slate)
+          const otherHip = isLeft ? 24 : 23;
+          const otherKnee = isLeft ? 26 : 25;
+          const otherAnkle = isLeft ? 28 : 27;
+          const otherHeel = isLeft ? 30 : 29;
+          const otherFoot = isLeft ? 32 : 31;
+
+          ctx.save();
+          ctx.lineWidth = Math.max(2.5, width / 180);
+          ctx.strokeStyle = otherColor;
+          const otherBones: [number, number][] = [
+            [otherHip, otherKnee],
+            [otherKnee, otherAnkle],
+            [otherAnkle, otherHeel],
+            [otherHeel, otherFoot]
+          ];
+          for (const [from, to] of otherBones) {
+            const a = toCanvas(landmarks[from]);
+            const b = toCanvas(landmarks[to]);
+            if (a && b && a.vis >= 0.35 && b.vis >= 0.35) {
+              ctx.beginPath();
+              ctx.moveTo(a.x, a.y);
+              ctx.lineTo(b.x, b.y);
+              ctx.stroke();
+            }
+          }
+          const otherKneePt = toCanvas(landmarks[otherKnee]);
+          if (otherKneePt && otherKneePt.vis >= 0.35) {
+            ctx.fillStyle = otherColor;
+            ctx.beginPath();
+            ctx.arc(otherKneePt.x, otherKneePt.y, 4, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.restore();
+
+          // 5. Chosen (Operative) Leg in Chosen Highlight Color!
+          const chosenHip = isLeft ? 23 : 24;
+          const chosenKnee = isLeft ? 25 : 26;
+          const chosenAnkle = isLeft ? 27 : 28;
+          const chosenHeel = isLeft ? 29 : 30;
+          const chosenFoot = isLeft ? 31 : 32;
+
+          const hipPt = toCanvas(landmarks[chosenHip]);
+          const kneePt = toCanvas(landmarks[chosenKnee]);
+          const anklePt = toCanvas(landmarks[chosenAnkle]);
+          const heelPt = toCanvas(landmarks[chosenHeel]);
+          const footPt = toCanvas(landmarks[chosenFoot]);
+
+          ctx.save();
+          ctx.shadowColor = chosenColor;
+          ctx.shadowBlur = 12;
+          ctx.strokeStyle = chosenColor;
+          ctx.lineWidth = Math.max(4.5, width / 110);
+          ctx.lineCap = 'round';
+
+          // Femur (Hip -> Knee)
+          if (hipPt && kneePt && hipPt.vis >= 0.35 && kneePt.vis >= 0.35) {
+            ctx.beginPath();
+            ctx.moveTo(hipPt.x, hipPt.y);
+            ctx.lineTo(kneePt.x, kneePt.y);
+            ctx.stroke();
+          }
+          // Tibia (Knee -> Ankle)
+          if (kneePt && anklePt && kneePt.vis >= 0.35 && anklePt.vis >= 0.35) {
+            ctx.beginPath();
+            ctx.moveTo(kneePt.x, kneePt.y);
+            ctx.lineTo(anklePt.x, anklePt.y);
+            ctx.stroke();
+          }
+          // Foot
+          if (anklePt && heelPt && anklePt.vis >= 0.35 && heelPt.vis >= 0.35) {
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(anklePt.x, anklePt.y);
+            ctx.lineTo(heelPt.x, heelPt.y);
+            ctx.stroke();
+          }
+          if (heelPt && footPt && heelPt.vis >= 0.35 && footPt.vis >= 0.35) {
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(heelPt.x, heelPt.y);
+            ctx.lineTo(footPt.x, footPt.y);
+            ctx.stroke();
+          }
+          ctx.restore();
+
+          // 6. KNEE JOINT HIGHLIGHT TAILORED FOR ACL REHABILITATION
+          if (kneePt && kneePt.vis >= 0.35) {
+            const kx = kneePt.x;
+            const ky = kneePt.y;
+            const pulse = Math.sin(now / 150) * 4;
+
+            ctx.save();
+            ctx.shadowColor = chosenColor;
+            ctx.shadowBlur = 18;
+
+            // Outer Pulsing Target Ring
+            ctx.strokeStyle = chosenColor;
+            ctx.lineWidth = 2.2;
+            ctx.beginPath();
+            ctx.arc(kx, ky, 22 + pulse, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Precision Crosshairs on Knee Joint
+            const rTick = 22 + pulse;
+            const tLen = 6;
+            ctx.beginPath();
+            ctx.moveTo(kx, ky - rTick - tLen); ctx.lineTo(kx, ky - rTick + 2);
+            ctx.moveTo(kx, ky + rTick - 2); ctx.lineTo(kx, ky + rTick + tLen);
+            ctx.moveTo(kx - rTick - tLen, ky); ctx.lineTo(kx - rTick + 2, ky);
+            ctx.moveTo(kx + rTick - 2, ky); ctx.lineTo(kx + rTick + tLen, ky);
+            ctx.stroke();
+
+            // Core Knee Joint Center
+            ctx.fillStyle = chosenColor;
+            ctx.beginPath();
+            ctx.arc(kx, ky, 8, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(kx, ky, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+
+            // Exercise-Specific ACL Clinical Status & Overlay
+            let statusText = '';
+            let statusColor = chosenColor;
+
+            if (exercise.id.includes('quad')) {
+              // Quad Sets: Terminal Extension Lock Focus (180°)
+              if (activeAngle !== null) {
+                if (activeAngle >= 172) {
+                  statusText = 'LOCKED · 180° EXTENSION';
+                  statusColor = '#10b981';
+                } else {
+                  statusText = `EXT DEFICIT: -${(180 - activeAngle).toFixed(0)}°`;
+                  statusColor = '#f59e0b';
+                }
+              }
+            } else if (exercise.id.includes('raise')) {
+              // Straight Leg Raise: 0° Knee Lag Focus
+              const kneeAng = landmarks[chosenHip] && landmarks[chosenKnee] && landmarks[chosenAnkle]
+                ? angleAt(landmarks[chosenHip], landmarks[chosenKnee], landmarks[chosenAnkle])
+                : null;
+              if (kneeAng !== null && kneeAng < 168) {
+                statusText = `⚠️ KNEE LAG: ${(180 - kneeAng).toFixed(0)}°`;
+                statusColor = '#f43f5e';
+              } else {
+                statusText = '✓ LOCKED (0° LAG)';
+                statusColor = '#10b981';
+              }
+            } else if (exercise.id.includes('heel')) {
+              // Heel Slides: Flexion ROM Arc
+              if (activeAngle !== null) {
+                statusText = `FLEXION: ${activeAngle}° / 110°`;
+                statusColor = activeAngle >= 100 ? '#10b981' : chosenColor;
+
+                // Draw Flexion Arc around knee
+                if (hipPt && anklePt) {
+                  const a1 = Math.atan2(hipPt.y - ky, hipPt.x - kx);
+                  const a2 = Math.atan2(anklePt.y - ky, anklePt.x - kx);
+                  ctx.save();
+                  ctx.strokeStyle = chosenColor;
+                  ctx.lineWidth = 3;
+                  ctx.beginPath();
+                  ctx.arc(kx, ky, 34, a1, a2);
+                  ctx.stroke();
+                  ctx.restore();
+                }
+              }
+            } else if (exercise.id.includes('patella')) {
+              // Patellar Mobilizations: Glide Zone
+              statusText = 'PATELLA GLIDE ZONE';
+              statusColor = chosenColor;
+            } else if (activeAngle !== null) {
+              statusText = `KNEE ANGLE: ${activeAngle}°`;
+            }
+
+            // Floating Knee HUD Card
+            ctx.save();
+            const pillX = Math.min(kx + 28, width - 190);
+            const pillY = Math.max(ky - 24, 70);
+            const pillW = 168;
+            const pillH = statusText ? 44 : 28;
+
+            ctx.fillStyle = 'rgba(10, 15, 25, 0.88)';
+            if (typeof ctx.roundRect === 'function') {
+              ctx.beginPath();
+              ctx.roundRect(pillX, pillY, pillW, pillH, 8);
+              ctx.fill();
+              ctx.strokeStyle = statusColor;
+              ctx.lineWidth = 1.2;
+              ctx.beginPath();
+              ctx.roundRect(pillX, pillY, pillW, pillH, 8);
+              ctx.stroke();
+            } else {
+              ctx.fillRect(pillX, pillY, pillW, pillH);
+              ctx.strokeStyle = statusColor;
+              ctx.strokeRect(pillX, pillY, pillW, pillH);
+            }
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '700 11px Inter, sans-serif';
+            ctx.fillText(`${isLeft ? 'L' : 'R'} KNEE JOINT`, pillX + 10, pillY + 16);
+
+            if (activeAngle !== null) {
+              ctx.fillStyle = chosenColor;
+              ctx.font = '700 11px monospace';
+              ctx.fillText(`${activeAngle}°`, pillX + pillW - 36, pillY + 16);
+            }
+
+            if (statusText) {
+              ctx.fillStyle = statusColor;
+              ctx.font = '600 9.5px Inter, sans-serif';
+              ctx.fillText(statusText, pillX + 10, pillY + 34);
+            }
+            ctx.restore();
           }
         };
 
         const detect = (now: number) => {
           if (stopped) return;
           const video = videoRef.current;
-          if (video && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && now - lastInference >= 100) {
+          if (video && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && now - lastInference >= 80) {
             lastInference = now;
             const result = landmarker.detectForVideo(video, now);
             const landmarks = result.landmarks[0];
-            drawPose(landmarks);
 
             let angle: number | null = null;
             let measure = exercise.id.includes('raise') ? 'estimated hip angle' : 'estimated knee angle';
+            const isLeft = selectedLegRef.current === 'left';
+
             if (landmarks) {
-              const candidates = exercise.id.includes('raise')
-                ? [[11, 23, 25], [12, 24, 26]]
-                : [[23, 25, 27], [24, 26, 28]];
-              const side = candidates
-                .map(([a, b, c]) => ({ points: [landmarks[a], landmarks[b], landmarks[c]], confidence: Math.min(landmarks[a]?.visibility ?? 0, landmarks[b]?.visibility ?? 0, landmarks[c]?.visibility ?? 0) }))
-                .filter((candidate) => candidate.confidence >= 0.45)
-                .sort((a, b) => b.confidence - a.confidence)[0];
-              if (side) angle = angleAt(side.points[0], side.points[1], side.points[2]);
+              if (exercise.id.includes('raise')) {
+                // Straight leg raise tracks hip flexion (shoulder, hip, knee)
+                const hipCandidates = isLeft ? [11, 23, 25] : [12, 24, 26];
+                const p1 = landmarks[hipCandidates[0]];
+                const p2 = landmarks[hipCandidates[1]];
+                const p3 = landmarks[hipCandidates[2]];
+                if ((p1?.visibility ?? 0) >= 0.35 && (p2?.visibility ?? 0) >= 0.35 && (p3?.visibility ?? 0) >= 0.35) {
+                  angle = angleAt(p1, p2, p3);
+                }
+              } else if (!exercise.id.includes('patella')) {
+                // Quad sets, Heel slides track knee angle of chosen leg (hip, knee, ankle)
+                const kneeCandidates = isLeft ? [23, 25, 27] : [24, 26, 28];
+                const p1 = landmarks[kneeCandidates[0]];
+                const p2 = landmarks[kneeCandidates[1]];
+                const p3 = landmarks[kneeCandidates[2]];
+                if ((p1?.visibility ?? 0) >= 0.35 && (p2?.visibility ?? 0) >= 0.35 && (p3?.visibility ?? 0) >= 0.35) {
+                  angle = angleAt(p1, p2, p3);
+                }
+              }
             }
+
+            drawPose(landmarks, angle, now);
+
             if (exercise.id.includes('patella')) angle = null;
             const message = !landmarks
               ? 'No pose detected. Adjust lighting or include your leg in frame.'
               : angle === null
-                ? 'Pose found; ensure full working knee is visible.'
+                ? `Pose found; ensure full working ${isLeft ? 'left' : 'right'} leg is in view.`
                 : 'Live on-device 2D kinematic estimate.';
             if (recordingRef.current && now - lastTelemetryAtRef.current >= 500) {
               lastTelemetryAtRef.current = now;
@@ -672,7 +981,29 @@ function App() {
   const recordVideo = () => {
     if (!stream || !window.MediaRecorder) { setCameraError('Local video recording is unavailable in this browser.'); return; }
     try {
-      const recorder = new MediaRecorder(stream); recorderRef.current = recorder; chunksRef.current = [];
+      let recordingStream: MediaStream = stream;
+      const canvas = poseCanvasRef.current;
+      if (canvas && typeof (canvas as unknown as { captureStream?: (fps?: number) => MediaStream }).captureStream === 'function') {
+        try {
+          const canvasStream = (canvas as unknown as { captureStream: (fps?: number) => MediaStream }).captureStream(30);
+          if (stream.getAudioTracks().length > 0) {
+            canvasStream.addTrack(stream.getAudioTracks()[0]);
+          }
+          recordingStream = canvasStream;
+        } catch (err) {
+          console.warn('Canvas captureStream fallback to raw stream:', err);
+          recordingStream = stream;
+        }
+      }
+
+      const mimeTypes = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm', 'video/mp4'];
+      const supportedType = mimeTypes.find((t) => window.MediaRecorder.isTypeSupported(t)) || '';
+      const recorder = supportedType
+        ? new MediaRecorder(recordingStream, { mimeType: supportedType })
+        : new MediaRecorder(recordingStream);
+
+      recorderRef.current = recorder;
+      chunksRef.current = [];
       savedAt.current = new Date().toISOString();
       recordingStartedAtRef.current = performance.now();
       lastTelemetryAtRef.current = 0;
@@ -682,13 +1013,27 @@ function App() {
       recorder.onstop = () => {
         recordingRef.current = false;
         const blob = new Blob(chunksRef.current, { type: recorder.mimeType || 'video/webm' });
-        const meta: VideoMeta = { at: savedAt.current, exercise: exercise.name, duration: Math.max(1, Math.round((performance.now() - recordingStartedAtRef.current) / 1000)), telemetry: [...telemetryRef.current] };
-        setVideoUrl(URL.createObjectURL(blob)); setVideoMeta(meta); setVideoPlaybackTime(0);
-        void saveVideo(blob, meta).then(() => setToast('Clip stored locally on this device.')).catch(() => setCameraError('Clip storage error.'));
+        const meta: VideoMeta = {
+          at: savedAt.current,
+          exercise: `${exercise.name} (${selectedLegRef.current.toUpperCase()} Leg)`,
+          duration: Math.max(1, Math.round((performance.now() - recordingStartedAtRef.current) / 1000)),
+          telemetry: [...telemetryRef.current]
+        };
+        setVideoUrl(URL.createObjectURL(blob));
+        setVideoMeta(meta);
+        setVideoPlaybackTime(0);
+        void saveVideo(blob, meta)
+          .then(() => setToast('Video with highlighted knee joint saved locally.'))
+          .catch(() => setCameraError('Clip storage error.'));
         setRecording(false);
       };
-      recorder.start(); setSeconds(0); setRunning(true); setRecording(true);
-    } catch { setCameraError('Could not start recording.'); }
+      recorder.start(100);
+      setSeconds(0);
+      setRunning(true);
+      setRecording(true);
+    } catch {
+      setCameraError('Could not start recording.');
+    }
   };
 
   const stopRecording = () => { recordingRef.current = false; recorderRef.current?.stop(); setRunning(false); };
@@ -1131,12 +1476,95 @@ function App() {
                 </button>
               </div>
 
+              {/* Target Leg & Knee Highlight Color Selector */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '12px 16px', background: 'var(--bg-card-subtle)', borderRadius: 12, marginBottom: 14, border: '1px solid var(--border-card)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span className="field-title" style={{ margin: 0, fontSize: 12 }}>Target Leg:</span>
+                  <div style={{ display: 'inline-flex', background: 'rgba(0,0,0,0.3)', padding: 3, borderRadius: 8, border: '1px solid var(--border-card)' }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedLeg('left');
+                        updateCurrentPatient((p) => ({ ...p, affectedLeg: 'left' }));
+                      }}
+                      className="btn"
+                      style={{
+                        padding: '5px 12px',
+                        fontSize: 12,
+                        fontWeight: 600,
+                        borderRadius: 6,
+                        background: selectedLeg === 'left' ? legColor : 'transparent',
+                        color: selectedLeg === 'left' ? '#000000' : 'var(--text-secondary)',
+                        border: 0,
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      Left Leg {patient.affectedLeg === 'left' ? '(Operative)' : ''}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedLeg('right');
+                        updateCurrentPatient((p) => ({ ...p, affectedLeg: 'right' }));
+                      }}
+                      className="btn"
+                      style={{
+                        padding: '5px 12px',
+                        fontSize: 12,
+                        fontWeight: 600,
+                        borderRadius: 6,
+                        background: selectedLeg === 'right' ? legColor : 'transparent',
+                        color: selectedLeg === 'right' ? '#000000' : 'var(--text-secondary)',
+                        border: 0,
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      Right Leg {patient.affectedLeg === 'right' ? '(Operative)' : ''}
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span className="field-title" style={{ margin: 0, fontSize: 12 }}>Knee Highlight:</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {[
+                      { hex: '#10b981', name: 'Clinical Emerald' },
+                      { hex: '#00f2fe', name: 'Cyber Cyan' },
+                      { hex: '#f59e0b', name: 'High-Vis Gold' },
+                      { hex: '#f43f5e', name: 'Coral Pink' },
+                      { hex: '#a855f7', name: 'Neon Violet' }
+                    ].map((c) => (
+                      <button
+                        key={c.hex}
+                        type="button"
+                        title={c.name}
+                        onClick={() => {
+                          setLegColor(c.hex);
+                          updateCurrentPatient((p) => ({ ...p, legHighlightColor: c.hex }));
+                        }}
+                        style={{
+                          width: 22,
+                          height: 22,
+                          borderRadius: '50%',
+                          background: c.hex,
+                          border: legColor === c.hex ? '2px solid #ffffff' : '2px solid transparent',
+                          boxShadow: legColor === c.hex ? `0 0 10px ${c.hex}` : 'none',
+                          cursor: 'pointer',
+                          transform: legColor === c.hex ? 'scale(1.2)' : 'scale(1)',
+                          transition: 'all 0.15s ease'
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+
               {stream ? (
                 <div className="camera-stage">
-                  <video ref={videoRef} className="camera-view" autoPlay muted playsInline/>
+                  <video ref={videoRef} className="camera-view" autoPlay muted playsInline style={{ opacity: 0 }} />
                   <div className="camera-overlay">
-                    <canvas ref={poseCanvasRef} className="pose-canvas" aria-hidden="true"/>
-                    <div className="alignment-frame"/>
+                    <canvas ref={poseCanvasRef} className="pose-canvas" style={{ transform: 'none' }} aria-hidden="true"/>
+                    <div className="alignment-frame" style={{ borderColor: legColor, boxShadow: `0 0 35px ${legColor}33` }}/>
                   </div>
                 </div>
               ) : (
