@@ -1492,7 +1492,7 @@ function App() {
               )}
             </section>
           ) : (
-            <section className="modal" role="dialog" aria-modal="true" aria-labelledby="camera-title">
+            <section className={`modal ${showDemoInCamera ? 'modal-camera' : ''}`} style={{ maxWidth: showDemoInCamera ? 1280 : 760, width: '96vw', transition: 'max-width 0.25s ease' }} role="dialog" aria-modal="true" aria-labelledby="camera-title">
               <div className="modal-head">
                 <div>
                   <div className="eyebrow"><Zap size={12}/> AI COMPUTER VISION ASSIST</div>
@@ -1610,96 +1610,107 @@ function App() {
                 </div>
               </div>
 
-              {stream ? (
-                <div style={{
+              <div 
+                className="camera-split-container"
+                style={{
                   display: 'grid',
-                  gridTemplateColumns: showDemoInCamera ? 'repeat(auto-fit, minmax(320px, 1fr))' : '1fr',
-                  gap: 16,
+                  gridTemplateColumns: showDemoInCamera ? 'minmax(0, 1.15fr) minmax(0, 1fr)' : '1fr',
+                  gap: 20,
                   alignItems: 'start'
-                }}>
-                  {/* Left Column: Camera Stage & Telemetry */}
-                  <div>
-                    <div className="camera-stage">
-                      <video ref={videoRef} className="camera-view" autoPlay muted playsInline style={{ opacity: 0 }} />
-                      <div className="camera-overlay">
-                        <canvas ref={poseCanvasRef} className="pose-canvas" style={{ transform: 'none' }} aria-hidden="true"/>
-                        <div className="alignment-frame" style={{ borderColor: legColor, boxShadow: `0 0 35px ${legColor}33` }}/>
+                }}
+              >
+                {/* Left Column: Camera Stage, Pose Telemetry & Controls */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  {stream ? (
+                    <>
+                      <div className="camera-stage">
+                        <video ref={videoRef} className="camera-view" autoPlay muted playsInline style={{ opacity: 0 }} />
+                        <div className="camera-overlay">
+                          <canvas ref={poseCanvasRef} className="pose-canvas" style={{ transform: 'none' }} aria-hidden="true"/>
+                          <div className="alignment-frame" style={{ borderColor: legColor, boxShadow: `0 0 35px ${legColor}33` }}/>
+                        </div>
                       </div>
-                    </div>
 
-                    <div className={`pose-readout ${poseState.status === 'error' ? 'pose-error' : ''}`} role="status">
-                      <div>
-                        <span className={`pose-dot ${poseState.status}`}/>
-                        <strong>
-                          {poseState.status === 'loading' ? 'Loading pose model' : poseState.status === 'error' ? 'Pose estimate unavailable' : poseState.status === 'searching' ? 'Looking for pose' : 'On-device pose estimate'}
-                        </strong>
+                      <div className={`pose-readout ${poseState.status === 'error' ? 'pose-error' : ''}`} role="status">
+                        <div>
+                          <span className={`pose-dot ${poseState.status}`}/>
+                          <strong>
+                            {poseState.status === 'loading' ? 'Loading pose model' : poseState.status === 'error' ? 'Pose estimate unavailable' : poseState.status === 'searching' ? 'Looking for pose' : 'On-device pose estimate'}
+                          </strong>
+                        </div>
+                        <p>{poseState.message}</p>
+                        {poseState.angle !== null && (
+                          <span className="mono pose-angle">
+                            {poseState.angle}° <small>{poseState.measure}</small>
+                          </span>
+                        )}
+                        {targetAngle !== null && (
+                          <p className="pose-reference">
+                            Plan reference: <strong>{targetAngle}°</strong>. {poseState.angle === null ? 'Compare from a clear lateral view.' : `Current estimate differs by ${Math.abs(poseState.angle - targetAngle)}°.`}
+                          </p>
+                        )}
                       </div>
-                      <p>{poseState.message}</p>
-                      {poseState.angle !== null && (
-                        <span className="mono pose-angle">
-                          {poseState.angle}° <small>{poseState.measure}</small>
-                        </span>
+                    </>
+                  ) : (
+                    <div className="empty" style={{ minHeight: 340, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                      <Camera size={34} style={{ color: 'var(--accent-cyan)', margin: '0 auto 12px' }}/>
+                      <p>{cameraError || 'Request camera access to see live joint tracking.'}</p>
+                      {!cameraError && (
+                        <button className="btn btn-primary" onClick={() => void startCamera(exercise)} style={{ margin: '8px auto 0' }}>
+                          <Camera size={15}/> Enable camera
+                        </button>
                       )}
-                      {targetAngle !== null && (
-                        <p className="pose-reference">
-                          Plan reference: <strong>{targetAngle}°</strong>. {poseState.angle === null ? 'Compare from a clear lateral view.' : `Current estimate differs by ${Math.abs(poseState.angle - targetAngle)}°.`}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Right Column: Character Demo Guide Side-by-Side */}
-                  {showDemoInCamera && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      <ExerciseCharacterDemo
-                        exerciseId={exercise.id}
-                        exerciseName={exercise.name}
-                        target={exercise.target}
-                        warning={exercise.warning}
-                        cues={exercise.cues}
-                        compact={false}
-                        highlightColor={legColor}
-                      />
                     </div>
                   )}
-                </div>
-              ) : (
-                <div className="empty">
-                  <Camera size={34} style={{ color: 'var(--accent-cyan)', margin: '0 auto 12px' }}/>
-                  <p>{cameraError || 'Request camera access to see live joint tracking.'}</p>
-                  {!cameraError && (
-                    <button className="btn btn-primary" onClick={() => void startCamera(exercise)}>
-                      <Camera size={15}/> Enable camera
-                    </button>
+
+                  {cameraError && (
+                    <div className="flag">
+                      <CircleHelp size={16}/>
+                      <span>{cameraError}</span>
+                    </div>
                   )}
-                </div>
-              )}
 
-              {cameraError && (
-                <div className="flag" style={{ marginTop: 14 }}>
-                  <CircleHelp size={16}/>
-                  <span>{cameraError}</span>
-                </div>
-              )}
-
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 16 }}>
-                {stream && (
-                  <button className={`btn ${recording ? 'btn-danger' : 'btn-primary'}`} onClick={recording ? stopRecording : recordVideo}>
-                    {recording ? (
-                      <>
-                        <span className="tag" style={{ background: '#51232a', color: '#ffb3b3' }}>REC {formattedTimer}</span>
-                        Stop and save clip
-                      </>
-                    ) : (
-                      <>
-                        <Video size={16}/> Record local clip · max 30s
-                      </>
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                    {stream && (
+                      <button className={`btn ${recording ? 'btn-danger' : 'btn-primary'}`} onClick={recording ? stopRecording : recordVideo}>
+                        {recording ? (
+                          <>
+                            <span className="tag" style={{ background: '#51232a', color: '#ffb3b3' }}>REC {formattedTimer}</span>
+                            Stop and save clip
+                          </>
+                        ) : (
+                          <>
+                            <Video size={16}/> Record local clip · max 30s
+                          </>
+                        )}
+                      </button>
                     )}
-                  </button>
+                    <button className="btn btn-quiet" onClick={() => { closeModal(); launchGuided(exercise); }}>
+                      <Play size={15}/> Use guided set
+                    </button>
+                  </div>
+                </div>
+
+                {/* Right Column: Character Demo Guide Side-by-Side */}
+                {showDemoInCamera && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px' }}>
+                      <span className="eyebrow" style={{ color: 'var(--accent-cyan)', margin: 0 }}>
+                        <Sparkles size={12}/> Biomechanical Avatar Guide
+                      </span>
+                      <span className="small muted">Match kinematics side-by-side</span>
+                    </div>
+                    <ExerciseCharacterDemo
+                      exerciseId={exercise.id}
+                      exerciseName={exercise.name}
+                      target={exercise.target}
+                      warning={exercise.warning}
+                      cues={exercise.cues}
+                      compact={false}
+                      highlightColor={legColor}
+                    />
+                  </div>
                 )}
-                <button className="btn" onClick={() => { closeModal(); launchGuided(exercise); }}>
-                  <Play size={15}/> Use guided set
-                </button>
               </div>
             </section>
           )}
