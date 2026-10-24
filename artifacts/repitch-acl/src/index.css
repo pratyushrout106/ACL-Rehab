@@ -1540,6 +1540,86 @@ button:disabled {
   border-radius: 6px;
 }
 
+/* Video Playlist & Library */
+.video-playlist-container {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .video-playlist-container {
+    grid-template-columns: 1fr;
+  }
+}
+
+.video-playlist {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 480px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.video-playlist-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.video-playlist-item:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--accent-cyan);
+  transform: translateX(2px);
+}
+
+.video-playlist-item.active {
+  background: var(--accent-cyan-light);
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 16px var(--accent-cyan-glow);
+}
+
+.video-playlist-item .clip-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.video-playlist-item .clip-actions button {
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border-light);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.video-playlist-item .clip-actions button:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+  border-color: var(--accent-cyan);
+}
+
+.video-playlist-item .clip-actions button.btn-del:hover {
+  color: var(--accent-rose);
+  border-color: var(--accent-rose);
+  background: rgba(239, 68, 68, 0.1);
+}
+
 /* Toast */
 .toast {
   position: fixed;

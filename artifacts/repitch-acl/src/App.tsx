@@ -40,11 +40,11 @@ import {
 } from 'lucide-react';
 import { useTheme } from './lib/theme';
 import { ExerciseCharacterDemo } from './components/ExerciseCharacterDemo';
+import { VideoPlaylistExplorer, type VideoClipEntry, type TelemetryPoint } from './components/VideoPlaylistExplorer';
 import { RECOVERY_MASTERPLAN, type PhasePlan } from './data/recoveryMasterplan';
 import { INITIAL_PATIENTS, type Patient, type Exercise, type Swelling, type Entry, type Session } from './data/defaultPatients';
 
 type Role = 'patient' | 'clinician';
-type TelemetryPoint = { t: number; angle: number | null; measure: string };
 type VideoMeta = { at: string; exercise: string; duration: number; telemetry?: TelemetryPoint[] };
 
 const STORAGE = { 
@@ -365,8 +365,8 @@ function App() {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [recording, setRecording] = useState(false);
   const [toast, setToast] = useState('');
-  const [videoUrl, setVideoUrl] = useState('');
-  const [videoMeta, setVideoMeta] = useState<VideoMeta | null>(null);
+  const [clips, setClips] = useState<VideoClipEntry[]>([]);
+  const [selectedClipId, setSelectedClipId] = useState<string | null>(null);
   const [videoPlaybackTime, setVideoPlaybackTime] = useState(0);
 
   // Selected Leg & Knee Highlight Color for ACL telemetry
@@ -940,24 +940,29 @@ function App() {
   }, [exercise, modal, stream]);
 
   useEffect(() => {
+    let active = true;
     const load = async () => {
       try {
-        const db = await openVideoDb();
-        const request = db.transaction('clips', 'readonly').objectStore('clips').get('latest');
-        request.onsuccess = () => {
-          if (request.result?.blob) {
-            setVideoUrl(URL.createObjectURL(request.result.blob));
-            setVideoMeta(request.result.meta);
-            setVideoPlaybackTime(0);
-          }
-        };
-      } catch { /* local video playback is optional */ }
+        const rawClips = await loadAllVideoClips();
+        if (!active) return;
+        const mapped: VideoClipEntry[] = rawClips.map((c) => ({
+          ...c,
+          url: URL.createObjectURL(c.blob),
+        }));
+        setClips(mapped);
+        if (mapped.length > 0) {
+          setSelectedClipId(mapped[0].id);
+        }
+      } catch { /* IndexedDB local video playback fallback */ }
     };
     void load();
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => () => { stream?.getTracks().forEach((track) => track.stop()); }, [stream]);
-  useEffect(() => () => { if (videoUrl) URL.revokeObjectURL(videoUrl); }, [videoUrl]);
+  useEffect(() => () => { clips.forEach((c) => URL.revokeObjectURL(c.url)); }, [clips]);
   useEffect(() => { if (!toast) return; const timer = window.setTimeout(() => setToast(''), 2800); return () => window.clearTimeout(timer); }, [toast]);
 
   const saveCheckin = () => {
@@ -1066,18 +1071,39 @@ function App() {
       recorder.onstop = () => {
         recordingRef.current = false;
         const blob = new Blob(chunksRef.current, { type: recorder.mimeType || 'video/webm' });
-        const meta: VideoMeta = {
-          at: savedAt.current,
-          exercise: `${exercise.name} (${selectedLegRef.current.toUpperCase()} Leg)`,
-          duration: Math.max(1, Math.round((performance.now() - recordingStartedAtRef.current) / 1000)),
-          telemetry: [...telemetryRef.current]
+        const clipId = `clip-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+        const at = savedAt.current;
+        const exerciseName = `${exercise.name} (${selectedLegRef.current.toUpperCase()} Leg)`;
+        const duration = Math.max(1, Math.round((performance.now() - recordingStartedAtRef.current) / 1000));
+        const telemetry = [...telemetryRef.current];
+
+        const newEntry: VideoClipEntry = {
+          id: clipId,
+          patientId: patient.id,
+          at,
+          exercise: exerciseName,
+          duration,
+          url: URL.createObjectURL(blob),
+          blob,
+          telemetry,
         };
-        setVideoUrl(URL.createObjectURL(blob));
-        setVideoMeta(meta);
+
+        setClips((prev) => [newEntry, ...prev]);
+        setSelectedClipId(clipId);
         setVideoPlaybackTime(0);
-        void saveVideo(blob, meta)
-          .then(() => setToast('Video with highlighted knee joint saved locally.'))
+
+        void saveVideoClip({
+          id: clipId,
+          patientId: patient.id,
+          at,
+          exercise: exerciseName,
+          duration,
+          blob,
+          telemetry,
+        })
+          .then(() => setToast(`Saved "${exerciseName}" to video playlist.`))
           .catch(() => setCameraError('Clip storage error.'));
+
         setRecording(false);
       };
       recorder.start(100);
@@ -1090,6 +1116,33 @@ function App() {
   };
 
   const stopRecording = () => { recordingRef.current = false; recorderRef.current?.stop(); setRunning(false); };
+
+  const downloadClip = (clip: VideoClipEntry) => {
+    const a = document.createElement('a');
+    a.href = clip.url;
+    const cleanName = clip.exercise.toLowerCase().replace(/[^a-z0-9]/g, '-');
+    a.download = `${cleanName}-${new Date(clip.at).toISOString().slice(0, 10)}.webm`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setToast(`Downloading video clip for "${clip.exercise}".`);
+  };
+
+  const deleteClip = async (clipId: string) => {
+    const target = clips.find((c) => c.id === clipId);
+    if (!target) return;
+    const confirmDelete = window.confirm(`Delete recorded video clip for "${target.exercise}"?`);
+    if (!confirmDelete) return;
+
+    await deleteVideoClipFromDb(clipId);
+    URL.revokeObjectURL(target.url);
+    const updated = clips.filter((c) => c.id !== clipId);
+    setClips(updated);
+    if (selectedClipId === clipId) {
+      setSelectedClipId(updated[0]?.id || null);
+    }
+    setToast('Video clip removed from playlist.');
+  };
 
   useEffect(() => {
     if (recording && seconds >= 30) {
@@ -1403,7 +1456,11 @@ function App() {
                 saveCheckin={saveCheckin} saved={saved}
                 launchGuided={launchGuided} startCamera={startCamera}
                 openDemo={(ex) => setDemoModal({ open: true, ex })}
-                videoUrl={videoUrl} videoMeta={videoMeta}
+                clips={clips.filter((c) => !c.patientId || c.patientId === patient.id)}
+                selectedClipId={selectedClipId}
+                setSelectedClipId={setSelectedClipId}
+                downloadClip={downloadClip}
+                deleteClip={deleteClip}
               />
             ) : (
               <MasterplanView patient={patient} />
@@ -1418,10 +1475,11 @@ function App() {
             latest={latest}
             flags={flags}
             exportReport={exportReport}
-            videoUrl={videoUrl}
-            videoMeta={videoMeta}
-            videoPlaybackTime={videoPlaybackTime}
-            setVideoPlaybackTime={setVideoPlaybackTime}
+            clips={clips.filter((c) => !c.patientId || c.patientId === patient.id)}
+            selectedClipId={selectedClipId}
+            setSelectedClipId={setSelectedClipId}
+            downloadClip={downloadClip}
+            deleteClip={deleteClip}
             openAddExercise={openAddExercise}
             openEditExercise={openEditExercise}
             deleteExercise={deleteExercise}
@@ -2450,9 +2508,17 @@ function PatientView(props: {
   saveCheckin: () => void; saved: boolean; 
   launchGuided: (e: Exercise) => void; startCamera: (e: Exercise) => void;
   openDemo: (e: Exercise) => void;
-  videoUrl: string; videoMeta: VideoMeta | null;
+  clips: VideoClipEntry[];
+  selectedClipId: string | null;
+  setSelectedClipId: (id: string) => void;
+  downloadClip: (clip: VideoClipEntry) => void;
+  deleteClip: (clipId: string) => void;
 }) {
-  const { patient, pain, setPain, swelling, setSwelling, sleep, setSleep, saveCheckin, saved, launchGuided, startCamera, openDemo, videoUrl, videoMeta } = props;
+  const { 
+    patient, pain, setPain, swelling, setSwelling, sleep, setSleep, 
+    saveCheckin, saved, launchGuided, startCamera, openDemo,
+    clips, selectedClipId, setSelectedClipId, downloadClip, deleteClip
+  } = props;
   const [rooCompanionSpeech, setRooCompanionSpeech] = useState<string>('');
   const [rooCompanionMood, setRooCompanionMood] = useState<'idle' | 'cheering' | 'wondering'>('idle');
 
@@ -2786,25 +2852,20 @@ function PatientView(props: {
               </div>
             )}
           </section>
-
-          {/* Video Player */}
-          {videoUrl && (
-            <section className="panel video-box">
-              <div className="section-head">
-                <div>
-                  <h2>Recorded Camera Clip</h2>
-                  <p>Local clip · {videoMeta?.exercise || 'Exercise'}</p>
-                </div>
-                <Video size={18} color="var(--accent-cyan)"/>
-              </div>
-              <video controls src={videoUrl} style={{ width: '100%', borderRadius: 12 }}/>
-              <div className="muted small" style={{ marginTop: 8 }}>
-                {videoMeta?.at ? dateTime(videoMeta.at) : 'Saved locally'} · {videoMeta?.duration ?? 0}s · not uploaded
-              </div>
-            </section>
-          )}
         </aside>
       </div>
+
+      {/* Stacked Video & Joint Telemetry Playlist */}
+      <VideoPlaylistExplorer
+        clips={clips}
+        selectedClipId={selectedClipId}
+        setSelectedClipId={setSelectedClipId}
+        downloadClip={downloadClip}
+        deleteClip={deleteClip}
+        title="Recorded Session Video Playlist"
+        subtitle="On-device recorded exercise clips stacked one after another with real-time knee joint telemetry. Save or delete any clip."
+        userRole="patient"
+      />
     </>
   );
 }
@@ -2962,10 +3023,11 @@ function ClinicianView(props: {
   latest: Entry;
   flags: Entry[];
   exportReport: () => void;
-  videoUrl: string;
-  videoMeta: VideoMeta | null;
-  videoPlaybackTime: number;
-  setVideoPlaybackTime: (time: number) => void;
+  clips: VideoClipEntry[];
+  selectedClipId: string | null;
+  setSelectedClipId: (id: string) => void;
+  downloadClip: (clip: VideoClipEntry) => void;
+  deleteClip: (clipId: string) => void;
   openAddExercise: () => void;
   openEditExercise: (ex: Exercise) => void;
   deleteExercise: (exId: string) => void;
@@ -2979,7 +3041,7 @@ function ClinicianView(props: {
 }) {
   const { 
     patients, selectedPatientId, setSelectedPatientId, patient, latest, flags, 
-    exportReport, videoUrl, videoMeta, videoPlaybackTime, setVideoPlaybackTime,
+    exportReport, clips, selectedClipId, setSelectedClipId, downloadClip, deleteClip,
     openAddExercise, openEditExercise, deleteExercise, openDemo, updatePatientNotes,
     updatePatientPhase, openAddPatient, deletePatient, openProfile, switchToPatientPortal
   } = props;
@@ -2992,8 +3054,6 @@ function ClinicianView(props: {
   }, [patient]);
 
   const summary = `Patient ${patient.name} (${patient.sport}) is on Day ${patient.currentDay} of Phase ${patient.currentPhase}. Total check-ins recorded: ${patient.checkins.length}. Latest pain: ${latest?.pain ?? 'N/A'}/10 with ${latest?.swelling?.toLowerCase() ?? 'no'} joint effusion. Adherence score is ${patient.adherenceRate}%.`;
-  const angleSamples = videoMeta?.telemetry?.filter((sample) => sample.angle !== null) ?? [];
-  const currentSample = angleSamples.reduce<TelemetryPoint | null>((closest, sample) => !closest || Math.abs(sample.t - videoPlaybackTime) < Math.abs(closest.t - videoPlaybackTime) ? sample : closest, null);
 
   return (
     <>
@@ -3390,97 +3450,87 @@ function ClinicianView(props: {
         </section>
       </div>
 
-      {/* Video & Telemetry Explorer */}
-      <section className="panel video-box" style={{ marginTop: 24 }}>
-        <div className="section-head">
-          <div>
-            <h2>Session Video & Joint Telemetry</h2>
-            <p>On-device recorded clip with synchronized 2D joint angle estimates.</p>
-          </div>
-          <Video size={18} color="var(--accent-cyan)"/>
-        </div>
-
-        {videoUrl && videoMeta ? (
-          <div className="clinician-grid">
-            <video 
-              controls 
-              src={videoUrl} 
-              onTimeUpdate={(event) => setVideoPlaybackTime(event.currentTarget.currentTime)} 
-              style={{ width: '100%', borderRadius: 14, maxHeight: 340, background: '#000000' }}
-            />
-            <div>
-              <div className="eyebrow">TELEMETRY ANALYSIS</div>
-              <h3 style={{ fontSize: 18, margin: '6px 0 2px' }}>{videoMeta.exercise}</h3>
-              <p className="muted small">{dateTime(videoMeta.at)}</p>
-              <div className="notice" style={{ margin: '12px 0' }}>
-                <Clock3 size={14} style={{ flexShrink: 0 }}/>
-                <span>Clip Duration: {videoMeta.duration}s · Playback Time: {videoPlaybackTime.toFixed(1)}s</span>
-              </div>
-
-              {angleSamples.length ? (
-                <>
-                  <div className="pose-readout" style={{ marginTop: 14 }}>
-                    <strong>Nearest Angle Estimate</strong>
-                    <span className="mono pose-angle">
-                      {currentSample?.angle ?? '—'}° 
-                      <small>{currentSample?.measure} · {currentSample?.t.toFixed(1)}s</small>
-                    </span>
-                  </div>
-                  <div className="telemetry-list">
-                    <div className="field-title" style={{ margin: '14px 0 6px' }}>
-                      <span>Angle Samples Timeline</span>
-                      <span className="mono muted">{angleSamples.length} points</span>
-                    </div>
-                    {angleSamples.map((sample, index) => (
-                      <div 
-                        className={`telemetry-row ${sample === currentSample ? 'active' : ''}`} 
-                        key={`${sample.t}-${index}`}
-                      >
-                        <span className="mono muted">{sample.t.toFixed(1)}s</span>
-                        <span style={{ fontWeight: 600 }}>
-                          {sample.angle}° <small className="muted">{sample.measure}</small>
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <div className="notice" style={{ marginTop: 14 }}>
-                  No joint angle samples available.
-                </div>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="empty">
-            <Video size={32} style={{ color: 'var(--accent-cyan)', margin: '0 auto 12px' }}/>
-            <p>No recorded session clip is stored on this device.</p>
-            <span className="small muted">Patients can capture a local 30-second guided clip from the camera flow.</span>
-          </div>
-        )}
-      </section>
+      {/* Video & Telemetry Stacked Playlist */}
+      <VideoPlaylistExplorer
+        clips={clips}
+        selectedClipId={selectedClipId}
+        setSelectedClipId={setSelectedClipId}
+        downloadClip={downloadClip}
+        deleteClip={deleteClip}
+        title="Patient Session Video & Telemetry Playlist"
+        subtitle="On-device recorded exercise clips stacked one after another with synchronized 2D joint angle telemetry. Physio and patient can save or delete any clip."
+        userRole="clinician"
+      />
     </>
   );
+}
+
+export interface RawVideoClipRecord {
+  id: string;
+  patientId: string;
+  at: string;
+  exercise: string;
+  duration: number;
+  blob: Blob;
+  telemetry: TelemetryPoint[];
 }
 
 function openVideoDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     if (!('indexedDB' in window)) { reject(new Error('IndexedDB unavailable')); return; }
-    const request = indexedDB.open('repitch-local-media', 1);
-    request.onupgradeneeded = () => request.result.createObjectStore('clips');
+    const request = indexedDB.open('repitch-clips-playlist-v1', 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains('clips_stack')) {
+        db.createObjectStore('clips_stack', { keyPath: 'id' });
+      }
+    };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
   });
 }
 
-async function saveVideo(blob: Blob, meta: { at: string; exercise: string; duration: number }) {
+async function saveVideoClip(record: RawVideoClipRecord): Promise<void> {
   const db = await openVideoDb();
-  await new Promise<void>((resolve, reject) => {
-    const tx = db.transaction('clips', 'readwrite');
-    tx.objectStore('clips').put({ blob, meta }, 'latest');
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction('clips_stack', 'readwrite');
+    tx.objectStore('clips_stack').put(record);
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
+}
+
+async function loadAllVideoClips(): Promise<RawVideoClipRecord[]> {
+  try {
+    const db = await openVideoDb();
+    return new Promise<RawVideoClipRecord[]>((resolve, reject) => {
+      const tx = db.transaction('clips_stack', 'readonly');
+      const store = tx.objectStore('clips_stack');
+      const request = store.getAll();
+      request.onsuccess = () => {
+        const results = (request.result || []) as RawVideoClipRecord[];
+        results.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+        resolve(results);
+      };
+      request.onerror = () => reject(request.error);
+    });
+  } catch {
+    return [];
+  }
+}
+
+async function deleteVideoClipFromDb(id: string): Promise<void> {
+  try {
+    const db = await openVideoDb();
+    return new Promise<void>((resolve, reject) => {
+      const tx = db.transaction('clips_stack', 'readwrite');
+      tx.objectStore('clips_stack').delete(id);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch {
+    // ignore
+  }
 }
 
 export default App;
