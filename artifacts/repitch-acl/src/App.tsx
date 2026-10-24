@@ -41,6 +41,13 @@ import {
 import { useTheme } from './lib/theme';
 import { ExerciseCharacterDemo } from './components/ExerciseCharacterDemo';
 import { VideoPlaylistExplorer, type VideoClipEntry, type TelemetryPoint } from './components/VideoPlaylistExplorer';
+import { 
+  RooDuoMascot, 
+  RooOnScreenExerciseCoach,
+  RooBetweenExercisePopup, 
+  MOTIVATIONAL_ROO_QUOTES,
+  type MascotAction 
+} from './components/RooDuoMascot';
 import { RECOVERY_MASTERPLAN, type PhasePlan } from './data/recoveryMasterplan';
 import { INITIAL_PATIENTS, type Patient, type Exercise, type Swelling, type Entry, type Session } from './data/defaultPatients';
 
@@ -84,19 +91,19 @@ const angleAt = (a: NormalizedLandmark, b: NormalizedLandmark, c: NormalizedLand
   return Math.round(Math.acos(Math.max(-1, Math.min(1, (ab.x * cb.x + ab.y * cb.y) / denominator))) * (180 / Math.PI));
 };
 
-// Roo Companion Lines: Warm, encouraging female recovery companion
+// Roo Companion Lines: Energetic Duolingo-style recovery motivation ("come on do it etc")
 const ROO_LINES = {
   greetings: [
-    "Hi there! I'm Roo. You're doing wonderful with your recovery today. Let's keep that knee strong and steady!",
-    "You can do anything you set your mind to! I'm right here cheering you on every step of the way.",
-    "Every steady hold makes a difference. You're doing great, keep going!"
+    "Come on, do it! Let's get that knee strong and steady today!",
+    "You can do this! I'm right here cheering you on every step of the way!",
+    "Come on! Every single repetition counts, let's crush today's routine!"
   ],
-  start: "You can do this! Lock that knee straight and hold it steady. I'm right here with you.",
-  halfway: "Halfway through! Looking very strong, keep holding that form steady.",
-  nearEnd: "Almost there! Three, two, one... hold it right there! Excellent work!",
-  completed: "Set complete! You did such a fantastic job! I am so proud of your dedication and progress today! ⭐",
+  start: "Come on, do it! Lock that knee straight and push through!",
+  halfway: "Halfway through! Come on, don't drop, hold that form steady!",
+  nearEnd: "Almost there! Three, two, one... hold it right there! Awesome job!",
+  completed: "Boom! Set complete! You crushed it! Ready for the next one? Come on, let's do it! ⭐",
   retry: "Would you like to try that set again? Come on, we can do it together! 💚",
-  retryConfirm: "Wonderful! Let's give it another shot! You've got this!"
+  retryConfirm: "Wonderful! Let's give it another shot! Come on, do it!"
 };
 
 // Roo Sound & Voice Engine
@@ -162,6 +169,59 @@ class RooSoundEngine {
       osc.stop(t + 0.38);
     });
   }
+
+  // Duolingo-style crisp rhythmic hand clapping
+  playClapSound() {
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    [0, 0.12, 0.24].forEach((offset) => {
+      const t = now + offset;
+      const bufferSize = Math.floor(ctx.sampleRate * 0.04);
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const output = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        output[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.2));
+      }
+      const whiteNoise = ctx.createBufferSource();
+      whiteNoise.buffer = buffer;
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(1200, t);
+      filter.Q.setValueAtTime(2.5, t);
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.18, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+
+      whiteNoise.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+      whiteNoise.start(t);
+    });
+  }
+
+  // Duolingo-style bouncy jumping boing
+  playJumpBoing() {
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(240, now);
+    osc.frequency.exponentialRampToValueAtTime(640, now + 0.16);
+    osc.frequency.exponentialRampToValueAtTime(440, now + 0.26);
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.16, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.32);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.35);
+  }
 }
 
 const rooAudio = new RooSoundEngine();
@@ -207,27 +267,36 @@ function findFemaleHumanVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVo
   return validVoices[0] || voices.find(v => v.lang.startsWith('en')) || voices[0] || null;
 }
 
-// Roo Voice Synthesizer: Natural Human Female Voice (pitch: 1.0, rate: 0.98, volume: 1.0)
-function speakRoo(text: string, enabled: boolean = true, isVictory: boolean = false) {
-  if (!enabled) return;
+let activeUtteranceRef: SpeechSynthesisUtterance | null = null;
 
-  if (isVictory) {
-    rooAudio.playVictoryFanfare();
+// Roo Voice Synthesizer: Natural Human Female Voice
+function speakRoo(text: string, enabled: boolean = true, isVictory: boolean = false) {
+  if (!enabled || typeof window === 'undefined') return;
+
+  try {
+    if (isVictory) {
+      rooAudio.playVictoryFanfare();
+    } else {
+      rooAudio.playWarmCue();
+    }
+  } catch (e) {
+    console.warn('Audio cue error:', e);
   }
 
-  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+  if (!('speechSynthesis' in window)) return;
   try {
-    window.speechSynthesis.cancel();
     if (window.speechSynthesis.paused) {
       window.speechSynthesis.resume();
     }
+    window.speechSynthesis.cancel();
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    // Natural human female voice settings:
-    // pitch 1.0 preserves the authentic human female timbre without any high-pitched Mickey Mouse / cartoon distortion
-    utterance.pitch = 1.0;  // Natural human female pitch
-    utterance.rate = 0.98;  // Natural, clear, articulate human conversational cadence
-    utterance.volume = 1.0; // 100% volume for clear audibility
+    const cleanText = text.replace(/[*_#~`]/g, '').trim();
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    activeUtteranceRef = utterance;
+
+    utterance.pitch = 1.0;
+    utterance.rate = 1.02;
+    utterance.volume = 1.0;
 
     const voices = cachedVoices.length > 0 ? cachedVoices : window.speechSynthesis.getVoices();
     const femaleVoice = findFemaleHumanVoice(voices);
@@ -235,7 +304,14 @@ function speakRoo(text: string, enabled: boolean = true, isVictory: boolean = fa
       utterance.voice = femaleVoice;
     }
 
-    const delay = isVictory ? 300 : 30;
+    utterance.onend = () => {
+      activeUtteranceRef = null;
+    };
+    utterance.onerror = () => {
+      activeUtteranceRef = null;
+    };
+
+    const delay = isVictory ? 320 : 50;
     setTimeout(() => {
       try {
         if (window.speechSynthesis.paused) {
@@ -251,9 +327,29 @@ function speakRoo(text: string, enabled: boolean = true, isVictory: boolean = fa
   }
 }
 
+// Duolingo Mascot Multi-Sensory Audio & Voice Trigger
+function triggerMascotReaction(action: MascotAction, quote: string, enabled: boolean = true) {
+  if (!enabled) return;
+  try {
+    if (action === 'clapping') {
+      rooAudio.playClapSound();
+    } else if (action === 'jumping') {
+      rooAudio.playJumpBoing();
+    } else if (action === 'party') {
+      rooAudio.playVictoryFanfare();
+    } else {
+      rooAudio.playWarmCue();
+    }
+  } catch (e) {
+    console.warn('Audio cue error:', e);
+  }
+  speakRoo(quote, enabled, action === 'party');
+}
+
 interface RooMascotProps {
   mood?: 'idle' | 'cheering' | 'wondering';
-  size?: 'sm' | 'md' | 'lg';
+  action?: MascotAction;
+  size?: 'sm' | 'md' | 'lg' | 'xl';
   speech?: string;
   showSparkles?: boolean;
   onClick?: () => void;
@@ -262,41 +358,28 @@ interface RooMascotProps {
 
 function RooMascot({
   mood = 'idle',
+  action,
   size = 'md',
   speech,
   showSparkles = false,
   onClick,
   className = ''
 }: RooMascotProps) {
+  // Translate legacy mood to modern Duolingo mascot action if action is not provided
+  const resolvedAction: MascotAction = action || (mood === 'cheering' ? 'jumping' : mood === 'wondering' ? 'peeking' : 'idle');
+
   return (
-    <div 
-      className={`roo-mascot-wrapper size-${size} mood-${mood} ${className}`}
+    <RooDuoMascot
+      action={resolvedAction}
+      size={size}
+      speech={speech}
+      showSparkles={showSparkles || resolvedAction === 'jumping' || resolvedAction === 'party'}
+      showConfetti={resolvedAction === 'party'}
+      showFire={resolvedAction === 'streak'}
       onClick={onClick}
-      style={{ cursor: onClick ? 'pointer' : 'default' }}
-      title={onClick ? "Click to hear Roo!" : undefined}
-    >
-      {speech && (
-        <div className="roo-speech-bubble" role="status">
-          <span>{speech}</span>
-          <div className="speech-tail" />
-        </div>
-      )}
-      <div className="roo-mascot-figure">
-        {(showSparkles || mood === 'cheering') && (
-          <div className="roo-sparkles" aria-hidden="true">
-            <span className="sparkle s1">✨</span>
-            <span className="sparkle s2">⭐</span>
-            <span className="sparkle s3">🌟</span>
-          </div>
-        )}
-        <img
-          src="/roo.png"
-          alt="Roo the cheerful kangaroo recovery mascot"
-          className="roo-mascot-img"
-          draggable={false}
-        />
-      </div>
-    </div>
+      className={className}
+      interactive={!!onClick}
+    />
   );
 }
 
@@ -387,7 +470,16 @@ function App() {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [guidedSpeech, setGuidedSpeech] = useState<string>(ROO_LINES.greetings[0]);
   const [guidedMood, setGuidedMood] = useState<'idle' | 'cheering' | 'wondering'>('idle');
+  const [cameraSpeech, setCameraSpeech] = useState<string>("Come on, do it! Position your knee and push through!");
+  const [cameraMascotAction, setCameraMascotAction] = useState<MascotAction>('jumping');
   const lastCheerSecRef = useRef<number>(-1);
+
+  // Duolingo Roo between-exercise motivation popup ("come on do it etc")
+  const [betweenExerciseModal, setBetweenExerciseModal] = useState<{
+    open: boolean;
+    completedEx: Exercise | null;
+    nextEx: Exercise | null;
+  }>({ open: false, completedEx: null, nextEx: null });
 
   // Physio modal to edit/create exercise
   const [exerciseModal, setExerciseModal] = useState<{ open: boolean; mode: 'add' | 'edit'; targetEx: Exercise | null }>({ open: false, mode: 'add', targetEx: null });
@@ -445,59 +537,99 @@ function App() {
     return () => window.clearInterval(timer);
   }, [running, exercise.seconds, modal]);
 
-  // Roo cheer and voice coach lifecycle during guided exercise
+  // Roo automatic speech and motivation coach lifecycle during active exercise (Guided & Camera)
   useEffect(() => {
-    if (modal !== 'guided' || step !== exercise.cues.length - 1) {
+    if (!modal) {
       lastCheerSecRef.current = -1;
       return;
     }
 
-    // Condition 1: Set completed properly
-    if (seconds >= exercise.seconds && exercise.seconds > 0) {
-      if (lastCheerSecRef.current !== 9999) {
-        lastCheerSecRef.current = 9999;
+    // A. Guided Mode Coaching
+    if (modal === 'guided') {
+      if (step !== exercise.cues.length - 1) {
+        lastCheerSecRef.current = -1;
+        return;
+      }
+
+      // Condition 1: Set completed properly
+      if (seconds >= exercise.seconds && exercise.seconds > 0) {
+        if (lastCheerSecRef.current !== 9999) {
+          lastCheerSecRef.current = 9999;
+          setGuidedMood('cheering');
+          const cheerText = ROO_LINES.completed;
+          setGuidedSpeech(cheerText);
+          speakRoo(cheerText, soundEnabled, true);
+        }
+        return;
+      }
+
+      // Condition 2: Ongoing set (running)
+      if (running && seconds < exercise.seconds) {
         setGuidedMood('cheering');
-        const cheerText = ROO_LINES.completed;
-        setGuidedSpeech(cheerText);
-        speakRoo(cheerText, soundEnabled, true);
+        
+        if (seconds === 1 && lastCheerSecRef.current !== 1) {
+          lastCheerSecRef.current = 1;
+          const msg = "Come on, do it! Lock that knee straight and push through!";
+          setGuidedSpeech(msg);
+          speakRoo(msg, soundEnabled);
+        } else if (seconds === Math.floor(exercise.seconds / 2) && seconds > 1 && lastCheerSecRef.current !== seconds) {
+          lastCheerSecRef.current = seconds;
+          const msg = "Halfway there! Come on, don't drop, hold that quad steady!";
+          setGuidedSpeech(msg);
+          speakRoo(msg, soundEnabled);
+        } else if (seconds === Math.max(2, exercise.seconds - 2) && exercise.seconds > 4 && lastCheerSecRef.current !== seconds) {
+          lastCheerSecRef.current = seconds;
+          const msg = "Almost there! 3, 2, 1... hold it right there, come on!";
+          setGuidedSpeech(msg);
+          speakRoo(msg, soundEnabled);
+        }
+        return;
+      }
+
+      // Condition 3: Else (stopped early / paused before reaching target seconds)
+      if (!running && seconds > 0 && seconds < exercise.seconds) {
+        if (lastCheerSecRef.current !== -888) {
+          lastCheerSecRef.current = -888;
+          setGuidedMood('wondering');
+          const retryText = ROO_LINES.retry;
+          setGuidedSpeech(retryText);
+          speakRoo(retryText, soundEnabled);
+        }
       }
       return;
     }
 
-    // Condition 2: Ongoing set (running)
-    if (running && seconds < exercise.seconds) {
-      setGuidedMood('cheering');
-      
-      if (seconds === 1 && lastCheerSecRef.current !== 1) {
-        lastCheerSecRef.current = 1;
-        const msg = ROO_LINES.start;
-        setGuidedSpeech(msg);
-        speakRoo(msg, soundEnabled);
-      } else if (seconds === Math.floor(exercise.seconds / 2) && seconds > 1 && lastCheerSecRef.current !== seconds) {
-        lastCheerSecRef.current = seconds;
-        const msg = ROO_LINES.halfway;
-        setGuidedSpeech(msg);
-        speakRoo(msg, soundEnabled);
-      } else if (seconds === Math.max(2, exercise.seconds - 2) && exercise.seconds > 4 && lastCheerSecRef.current !== seconds) {
-        lastCheerSecRef.current = seconds;
-        const msg = ROO_LINES.nearEnd;
-        setGuidedSpeech(msg);
-        speakRoo(msg, soundEnabled);
-      }
-      return;
-    }
-
-    // Condition 3: Else (stopped early / paused before reaching target seconds)
-    if (!running && seconds > 0 && seconds < exercise.seconds) {
-      if (lastCheerSecRef.current !== -888) {
-        lastCheerSecRef.current = -888;
-        setGuidedMood('wondering');
-        const retryText = ROO_LINES.retry;
-        setGuidedSpeech(retryText);
-        speakRoo(retryText, soundEnabled);
+    // B. AI Camera Mode Coaching
+    if (modal === 'camera') {
+      if (recording && running) {
+        if (seconds === 1 && lastCheerSecRef.current !== 1) {
+          lastCheerSecRef.current = 1;
+          const msg = "Come on, do it! Keep that knee strong and steady!";
+          setCameraSpeech(msg);
+          setCameraMascotAction('clapping');
+          speakRoo(msg, soundEnabled);
+        } else if (seconds === 10 && lastCheerSecRef.current !== 10) {
+          lastCheerSecRef.current = 10;
+          const msg = "Looking super strong! Come on, keep that quad engaged!";
+          setCameraSpeech(msg);
+          setCameraMascotAction('clapping');
+          speakRoo(msg, soundEnabled);
+        } else if (seconds === 15 && lastCheerSecRef.current !== 15) {
+          lastCheerSecRef.current = 15;
+          const msg = "Halfway through the recording! Come on, push through!";
+          setCameraSpeech(msg);
+          setCameraMascotAction('jumping');
+          speakRoo(msg, soundEnabled);
+        } else if (seconds === 25 && lastCheerSecRef.current !== 25) {
+          lastCheerSecRef.current = 25;
+          const msg = "Almost there! 3, 2, 1... finish strong, come on!";
+          setCameraSpeech(msg);
+          setCameraMascotAction('clapping');
+          speakRoo(msg, soundEnabled);
+        }
       }
     }
-  }, [modal, step, running, seconds, exercise.seconds, exercise.cues.length, soundEnabled]);
+  }, [modal, step, running, recording, seconds, exercise.seconds, exercise.cues.length, soundEnabled]);
 
   useEffect(() => {
     if (videoRef.current && stream) videoRef.current.srcObject = stream;
@@ -978,13 +1110,15 @@ function App() {
 
   const launchGuided = (item: Exercise) => { 
     setExercise(item); 
-    setStep(0); 
+    setStep(item.cues.length - 1); 
     setSeconds(0); 
     setRunning(false); 
     setModal('guided'); 
     lastCheerSecRef.current = -1;
     setGuidedMood('idle');
-    setGuidedSpeech(ROO_LINES.start);
+    const msg = `Come on, do it! Let's start ${item.name}!`;
+    setGuidedSpeech(msg);
+    speakRoo(msg, soundEnabled);
   };
   
   const completeSession = () => {
@@ -1003,11 +1137,24 @@ function App() {
     setModal(null); 
     setRunning(false); 
     setToast('Session saved! +15 RePitch XP gained.');
+
+    // Duolingo Roo pops up between exercises to motivate patient to do the next exercise
+    const curIdx = patient.routine.findIndex((e) => e.id === exercise.id);
+    const nextEx = curIdx !== -1 && curIdx + 1 < patient.routine.length ? patient.routine[curIdx + 1] : patient.routine[0];
+    setBetweenExerciseModal({
+      open: true,
+      completedEx: exercise,
+      nextEx: nextEx
+    });
   };
 
   const startCamera = async (item: Exercise) => {
     const requestId = ++cameraRequestRef.current;
     setExercise(item); setCameraError(''); setModal('camera'); setRecording(false);
+    const welcomeMsg = `Come on, do it! Position your knee for ${item.name}!`;
+    setCameraSpeech(welcomeMsg);
+    setCameraMascotAction('jumping');
+    speakRoo(welcomeMsg, soundEnabled);
     try {
       if (!navigator.mediaDevices?.getUserMedia) throw new Error('Camera access is not supported in this browser.');
       const nextStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
@@ -1101,7 +1248,17 @@ function App() {
           blob,
           telemetry,
         })
-          .then(() => setToast(`Saved "${exerciseName}" to video playlist.`))
+          .then(() => {
+            setToast(`Saved "${exerciseName}" to video playlist.`);
+            triggerMascotReaction('party', `Awesome job! Saved "${exerciseName}" to your video playlist! 🎉`, soundEnabled);
+            const curIdx = patient.routine.findIndex((e) => e.id === exercise.id);
+            const nextEx = curIdx !== -1 && curIdx + 1 < patient.routine.length ? patient.routine[curIdx + 1] : patient.routine[0];
+            setBetweenExerciseModal({
+              open: true,
+              completedEx: exercise,
+              nextEx: nextEx
+            });
+          })
           .catch(() => setCameraError('Clip storage error.'));
 
         setRecording(false);
@@ -1110,6 +1267,10 @@ function App() {
       setSeconds(0);
       setRunning(true);
       setRecording(true);
+      const startMsg = "Recording started! Come on, hold that knee steady!";
+      setCameraSpeech(startMsg);
+      setCameraMascotAction('clapping');
+      speakRoo(startMsg, soundEnabled);
     } catch {
       setCameraError('Could not start recording.');
     }
@@ -1527,18 +1688,18 @@ function App() {
                       <div className="roo-cheer-stage">
                         <RooMascot
                           size="md"
-                          mood={guidedMood}
+                          action={seconds >= exercise.seconds ? 'party' : running ? 'clapping' : 'peeking'}
                           speech={guidedSpeech}
-                          showSparkles={guidedMood === 'cheering'}
+                          showSparkles={seconds >= exercise.seconds || running}
                           onClick={() => {
                             if (seconds >= exercise.seconds) {
-                              speakRoo(ROO_LINES.completed, soundEnabled, true);
+                              triggerMascotReaction('party', ROO_LINES.completed, soundEnabled);
                             } else if (running) {
-                              speakRoo(ROO_LINES.halfway, soundEnabled);
+                              triggerMascotReaction('clapping', ROO_LINES.halfway, soundEnabled);
                             } else if (seconds > 0) {
-                              speakRoo(ROO_LINES.retry, soundEnabled);
+                              triggerMascotReaction('peeking', ROO_LINES.retry, soundEnabled);
                             } else {
-                              speakRoo(ROO_LINES.greetings[0], soundEnabled);
+                              triggerMascotReaction('jumping', ROO_LINES.greetings[0], soundEnabled);
                             }
                           }}
                         />
@@ -1665,10 +1826,10 @@ function App() {
                 <div className="empty" style={{ border: 0, padding: '28px 20px', textAlign: 'center' }}>
                   <RooMascot
                     size="lg"
-                    mood="cheering"
+                    action="party"
                     speech={ROO_LINES.completed}
                     showSparkles={true}
-                    onClick={() => speakRoo(ROO_LINES.completed, soundEnabled, true)}
+                    onClick={() => triggerMascotReaction('party', ROO_LINES.completed, soundEnabled)}
                   />
                   <h3 style={{ fontSize: 24, margin: '14px 0 6px', fontWeight: 800 }}>Set Complete!</h3>
                   <p className="muted" style={{ margin: '0 0 20px', maxWidth: 360, marginLeft: 'auto', marginRight: 'auto' }}>
@@ -1904,6 +2065,14 @@ function App() {
                             </div>
                           </div>
                         </div>
+
+                        {/* Roo Mascot pops up ON THE CAMERA SCREEN while exercising */}
+                        <RooOnScreenExerciseCoach
+                          action={recording ? cameraMascotAction : 'jumping'}
+                          speech={cameraSpeech}
+                          soundEnabled={soundEnabled}
+                          size="sm"
+                        />
                       </div>
 
                       {/* Compact Bottom Bar: Status Indicator & Action Buttons */}
@@ -2496,6 +2665,18 @@ function App() {
           <span>{toast}</span>
         </div>
       )}
+
+      {/* Duolingo-style Roo Mascot Pop-up Between Exercises */}
+      <RooBetweenExercisePopup
+        open={betweenExerciseModal.open}
+        onClose={() => setBetweenExerciseModal({ open: false, completedEx: null, nextEx: null })}
+        completedExercise={betweenExerciseModal.completedEx}
+        nextExercise={betweenExerciseModal.nextEx}
+        onStartNext={(nextItem) => launchGuided(nextItem)}
+        onRepeatCurrent={(currItem) => launchGuided(currItem)}
+        soundEnabled={soundEnabled}
+        onSoundTrigger={(action, quote) => triggerMascotReaction(action, quote, soundEnabled)}
+      />
     </div>
   );
 }
@@ -2520,7 +2701,7 @@ function PatientView(props: {
     clips, selectedClipId, setSelectedClipId, downloadClip, deleteClip
   } = props;
   const [rooCompanionSpeech, setRooCompanionSpeech] = useState<string>('');
-  const [rooCompanionMood, setRooCompanionMood] = useState<'idle' | 'cheering' | 'wondering'>('idle');
+  const [rooCompanionAction, setRooCompanionAction] = useState<MascotAction>('idle');
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
@@ -2787,12 +2968,14 @@ function PatientView(props: {
                   type="button"
                   className="roo-sound-toggle-btn"
                   onClick={() => {
-                    const quotes = ROO_LINES.greetings;
+                    const actions: MascotAction[] = ['clapping', 'jumping', 'party', 'streak'];
+                    const act = actions[Math.floor(Math.random() * actions.length)];
+                    const quotes = MOTIVATIONAL_ROO_QUOTES.betweenExercises;
                     const quote = quotes[Math.floor(Math.random() * quotes.length)];
                     setRooCompanionSpeech(quote);
-                    speakRoo(quote, true);
-                    setRooCompanionMood('cheering');
-                    setTimeout(() => setRooCompanionMood('idle'), 3500);
+                    triggerMascotReaction(act, quote, true);
+                    setRooCompanionAction(act);
+                    setTimeout(() => setRooCompanionAction('idle'), 4000);
                   }}
                   title="Hear Roo's voice"
                 >
@@ -2804,16 +2987,18 @@ function PatientView(props: {
             <div className="roo-art" style={{ width: 140, height: 140, overflow: 'visible' }}>
               <RooMascot
                 size="md"
-                mood={rooCompanionMood}
+                action={rooCompanionAction}
                 speech={rooCompanionSpeech}
-                showSparkles={rooCompanionMood === 'cheering'}
+                showSparkles={rooCompanionAction === 'jumping' || rooCompanionAction === 'party'}
                 onClick={() => {
-                  const quotes = ROO_LINES.greetings;
+                  const actions: MascotAction[] = ['clapping', 'jumping', 'party', 'streak'];
+                  const act = actions[Math.floor(Math.random() * actions.length)];
+                  const quotes = MOTIVATIONAL_ROO_QUOTES.betweenExercises;
                   const quote = quotes[Math.floor(Math.random() * quotes.length)];
                   setRooCompanionSpeech(quote);
-                  speakRoo(quote, true);
-                  setRooCompanionMood('cheering');
-                  setTimeout(() => setRooCompanionMood('idle'), 3500);
+                  triggerMascotReaction(act, quote, true);
+                  setRooCompanionAction(act);
+                  setTimeout(() => setRooCompanionAction('idle'), 4000);
                 }}
               />
             </div>
