@@ -2782,6 +2782,50 @@ function PatientView(props: {
       {/* Main Grid */}
       <div className="content-grid">
         <div>
+          {/* Active Prescribed Exercises */}
+          <section className="exercise-section">
+            <div className="section-head">
+              <div>
+                <h2>Prescribed Daily Routine ({patient.prescribedExercises.length} Exercises)</h2>
+                <p>Prescribed specifically for your recovery phase by your physiotherapist.</p>
+              </div>
+              <span className="tag">
+                <CheckCircle2 size={13}/> {patient.sessions.length} logged
+              </span>
+            </div>
+            <div className="exercise-grid">
+              {patient.prescribedExercises.map((item) => (
+                <article className="panel exercise" key={item.id}>
+                  <div className="exercise-thumb">
+                    <Art kind={item.icon}/>
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <h3>{item.name}</h3>
+                      {item.category && <span className="tag" style={{ fontSize: 9.5, padding: '2px 7px' }}>{item.category}</span>}
+                    </div>
+                    <div className="target">{item.target}</div>
+                    <div className="warning">
+                      <ShieldAlert size={13} style={{ flexShrink: 0, marginTop: 1 }}/>
+                      <span>{item.warning}</span>
+                    </div>
+                    <div className="exercise-actions">
+                      <button className="btn btn-primary" onClick={() => launchGuided(item)}>
+                        <Play size={13}/> Start Guided Set
+                      </button>
+                      <button className="btn btn-quiet" onClick={() => void startCamera(item)}>
+                        <Camera size={13}/> AI Camera
+                      </button>
+                      <button className="btn btn-quiet" onClick={() => openDemo(item)} title="Watch animated character demo">
+                        <Sparkles size={13} style={{ color: 'var(--accent-cyan)' }}/> Character Demo
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+
           {/* Daily Check-in Form */}
           <section className="panel checkin">
             <div className="section-head">
@@ -2861,50 +2905,6 @@ function PatientView(props: {
               <button className="btn btn-primary" onClick={saveCheckin} data-testid="button-save-checkin">
                 <Check size={15}/>{saved ? 'Saved Successfully' : 'Save Today’s Check-in'}
               </button>
-            </div>
-          </section>
-
-          {/* Active Prescribed Exercises */}
-          <section className="exercise-section">
-            <div className="section-head">
-              <div>
-                <h2>Prescribed Daily Routine ({patient.prescribedExercises.length} Exercises)</h2>
-                <p>Prescribed specifically for your recovery phase by your physiotherapist.</p>
-              </div>
-              <span className="tag">
-                <CheckCircle2 size={13}/> {patient.sessions.length} logged
-              </span>
-            </div>
-            <div className="exercise-grid">
-              {patient.prescribedExercises.map((item) => (
-                <article className="panel exercise" key={item.id}>
-                  <div className="exercise-thumb">
-                    <Art kind={item.icon}/>
-                  </div>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <h3>{item.name}</h3>
-                      {item.category && <span className="tag" style={{ fontSize: 9.5, padding: '2px 7px' }}>{item.category}</span>}
-                    </div>
-                    <div className="target">{item.target}</div>
-                    <div className="warning">
-                      <ShieldAlert size={13} style={{ flexShrink: 0, marginTop: 1 }}/>
-                      <span>{item.warning}</span>
-                    </div>
-                    <div className="exercise-actions">
-                      <button className="btn btn-primary" onClick={() => launchGuided(item)}>
-                        <Play size={13}/> Start Guided Set
-                      </button>
-                      <button className="btn btn-quiet" onClick={() => void startCamera(item)}>
-                        <Camera size={13}/> AI Camera
-                      </button>
-                      <button className="btn btn-quiet" onClick={() => openDemo(item)} title="Watch animated character demo">
-                        <Sparkles size={13} style={{ color: 'var(--accent-cyan)' }}/> Character Demo
-                      </button>
-                    </div>
-                  </div>
-                </article>
-              ))}
             </div>
           </section>
         </div>
