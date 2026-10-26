@@ -79,6 +79,15 @@ export const RECOVERY_MASTERPLAN: PhasePlan[] = [
         description: 'Slide heel toward buttocks along a smooth surface using a towel or strap for gentle end-range assistance.'
       },
       {
+        id: 'p1-squat',
+        name: 'Mini Squats (0°–45°)',
+        setsReps: '3 sets of 10–12 reps',
+        target: '30°–45° knee flexion · 3s hold',
+        frequency: '2x daily',
+        category: 'Strength',
+        description: 'Bilateral closed-kinetic-chain shallow squatting to rebuild quad strength and symmetrical weight distribution. Keep knees tracking over 2nd toes and avoid squatting past 45°.'
+      },
+      {
         id: 'p1-prone',
         name: 'Prone Terminal Knee Hangs',
         setsReps: '3 bouts of 3–5 minutes',

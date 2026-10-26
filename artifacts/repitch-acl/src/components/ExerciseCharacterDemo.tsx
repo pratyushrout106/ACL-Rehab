@@ -33,10 +33,11 @@ export function ExerciseCharacterDemo({
   const isRaise = (exKey.includes('raise') || exKey.includes('slr') || exKey.includes('straight leg')) && !exKey.includes('step');
   const isHeel = (exKey.includes('heel') || exKey.includes('slide') || exKey.includes('flexion')) && !exKey.includes('wall');
   const isPatella = exKey.includes('patell') || exKey.includes('mobili');
-  const isWallSit = exKey.includes('wall') || exKey.includes('sit');
+  const isMiniSquat = exKey.includes('mini') || (exKey.includes('squat') && !exKey.includes('split') && !exKey.includes('bulgarian') && !exKey.includes('wall'));
+  const isWallSit = (exKey.includes('wall') || exKey.includes('sit')) && !isMiniSquat;
   const isStepUp = exKey.includes('step') || exKey.includes('box drop');
   const isBike = exKey.includes('bike') || exKey.includes('cycl') || exKey.includes('rpm');
-  const isBulgarian = exKey.includes('bulgarian') || exKey.includes('split squat') || exKey.includes('lunge') || exKey.includes('rear foot');
+  const isBulgarian = (exKey.includes('bulgarian') || exKey.includes('split squat') || exKey.includes('lunge') || exKey.includes('rear foot')) && !isMiniSquat;
   const isBoxJump = exKey.includes('boxjump') || (exKey.includes('box') && exKey.includes('landing')) || exKey.includes('jump');
   const isJogging = exKey.includes('jog') || exKey.includes('running') || exKey.includes('linear');
   const isCutting = exKey.includes('cut') || exKey.includes('cone') || exKey.includes('decel');
@@ -46,6 +47,7 @@ export function ExerciseCharacterDemo({
     : isRaise ? 7000
     : isHeel ? 7000
     : isPatella ? 6000
+    : isMiniSquat ? 6500
     : isWallSit ? 8000
     : isStepUp ? 6500
     : isBike ? 2400
@@ -148,6 +150,31 @@ export function ExerciseCharacterDemo({
       phaseName = '3. Medial Patellar Glide (Inward)';
     } else {
       phaseName = '4. Lateral Patellar Glide (Outward)';
+    }
+  } else if (isMiniSquat) {
+    if (progress < 0.16) {
+      phaseName = '1. Athletic Stance (Feet Shoulder-Width)';
+      kneeAngle = 180;
+      hipAngle = 180;
+      quadTension = 0.25;
+    } else if (progress < 0.46) {
+      phaseName = '2. Controlled Descent to 35°–45° Flexion';
+      const t = (progress - 0.16) / 0.30;
+      kneeAngle = Math.round(180 - t * 35);
+      hipAngle = Math.round(180 - t * 35);
+      quadTension = 0.25 + t * 0.75;
+    } else if (progress < 0.76) {
+      phaseName = '3. 3s Isometric Hold (Knee Over Midfoot · No Valgus)';
+      isHoldPhase = true;
+      kneeAngle = 145;
+      hipAngle = 145;
+      quadTension = 1.0;
+    } else {
+      phaseName = '4. Drive Through Heels to Terminal Lock (180°)';
+      const t = (progress - 0.76) / 0.24;
+      kneeAngle = Math.round(145 + t * 35);
+      hipAngle = Math.round(145 + t * 35);
+      quadTension = 1.0 - t * 0.75;
     }
   } else if (isWallSit) {
     if (progress < 0.25) {
@@ -411,6 +438,15 @@ export function ExerciseCharacterDemo({
             <PatellarMobScene
               progress={progress}
               highlightColor={highlightColor}
+            />
+          )}
+
+          {isMiniSquat && (
+            <MiniSquatScene
+              kneeAngle={kneeAngle}
+              quadTension={quadTension}
+              highlightColor={highlightColor}
+              isHoldPhase={isHoldPhase}
             />
           )}
 
@@ -749,6 +785,132 @@ function PatellarMobScene({ progress, highlightColor }: { progress: number; high
       <g transform={`translate(${kneeX - 80}, ${kneeY - 90})`}>
         <rect x="0" y="0" width="160" height="30" rx="7" fill="rgba(10,15,25,0.92)" stroke={highlightColor} strokeWidth="1.2" />
         <text x="80" y="19" fill="#ffffff" fontSize="10" fontWeight="700" textAnchor="middle">{dirText}</text>
+      </g>
+    </g>
+  );
+}
+
+// 4b. Mini Squat Scene (Phase 1 Closed-Kinetic-Chain)
+function MiniSquatScene({
+  kneeAngle,
+  quadTension,
+  highlightColor,
+  isHoldPhase
+}: {
+  kneeAngle: number;
+  quadTension: number;
+  highlightColor: string;
+  isHoldPhase: boolean;
+}) {
+  // t: 0 (standing 180°) -> 1 (shallow squat 145°, 35° flexion)
+  const t = Math.max(0, Math.min(1, (180 - kneeAngle) / 35));
+
+  // Ankle pinned firmly on the floor at (400, 370)
+  const ankleX = 400;
+  const ankleY = 370;
+
+  // Knee flexes forward slightly over midfoot (never exceeding toes at x=442)
+  const kneeX = 400 + t * 24; // 400 to 424 (safely behind toe line 442)
+  const kneeY = 265 + t * 24; // 265 to 289
+
+  // Hips hinge backward and down (posterior hip hinge)
+  const hipX = 400 - t * 40; // 400 back to 360
+  const hipY = 160 + t * 48; // 160 down to 208
+
+  // Torso maintains proud chest with natural athletic forward lean (~15°)
+  const shoulderX = hipX + 14; // 414 to 374
+  const shoulderY = hipY - 82; // 78 to 126
+  const headX = shoulderX + 2;
+  const headY = shoulderY - 26;
+
+  // Arms reach forward for counterbalance as hips sink back
+  const elbowX = shoulderX + 26 + t * 20;
+  const elbowY = shoulderY + 22 + t * 2;
+  const handX = shoulderX + 54 + t * 38;
+  const handY = shoulderY + 20 - t * 12;
+
+  // Contralateral (background) leg for depth perception
+  const bgHipX = hipX - 16;
+  const bgKneeX = kneeX - 30;
+  const bgKneeY = kneeY - 4;
+  const bgAnkleX = ankleX - 30;
+  const bgAnkleY = ankleY - 2;
+
+  return (
+    <g>
+      {/* Floor Depth Guide */}
+      <line x1="300" y1="289" x2="490" y2="289" stroke="#f59e0b" strokeWidth="1.5" strokeDasharray="4 4" opacity="0.4" />
+      <text x="295" y="286" fill="#f59e0b" fontSize="9.5" fontWeight="700" textAnchor="end">
+        PHASE 1 LIMIT: 45° MAX
+      </text>
+
+      {/* Contralateral (Back) Leg */}
+      <line x1={bgHipX} y1={hipY} x2={bgKneeX} y2={bgKneeY} stroke="#1e293b" strokeWidth="22" strokeLinecap="round" opacity="0.45" />
+      <line x1={bgKneeX} y1={bgKneeY} x2={bgAnkleX} y2={bgAnkleY} stroke="url(#skinGrad)" strokeWidth="16" strokeLinecap="round" opacity="0.45" />
+      <polygon points={`${bgAnkleX - 15},380 ${bgAnkleX + 32},380 ${bgAnkleX + 24},364 ${bgAnkleX - 15},364`} fill="#475569" opacity="0.45" />
+
+      {/* Head & Athletic Torso */}
+      <circle cx={headX} cy={headY} r="22" fill="url(#skinGrad)" />
+      <circle cx={headX + 9} cy={headY - 2} r="2.5" fill="#0f172a" />
+      
+      {/* Strong Torso Line with athletic shirt */}
+      <line x1={shoulderX} y1={shoulderY} x2={hipX} y2={hipY} stroke="#0284c7" strokeWidth="36" strokeLinecap="round" />
+      
+      {/* Counterbalance Arms reaching forward */}
+      <path
+        d={`M ${shoulderX} ${shoulderY + 10} Q ${elbowX} ${elbowY} ${handX} ${handY}`}
+        stroke="url(#skinGrad)"
+        strokeWidth="12"
+        strokeLinecap="round"
+        fill="none"
+      />
+
+      {/* Operative Thigh (Femur) */}
+      <line x1={hipX} y1={hipY} x2={kneeX} y2={kneeY} stroke="#0f172a" strokeWidth="32" strokeLinecap="round" />
+
+      {/* Quadriceps VMO Activation Glow */}
+      <line
+        x1={hipX + 3}
+        y1={hipY}
+        x2={kneeX}
+        y2={kneeY}
+        stroke={highlightColor}
+        strokeWidth={7 + quadTension * 6}
+        strokeLinecap="round"
+        opacity={0.3 + quadTension * 0.55}
+        filter="url(#glowFilter)"
+      />
+
+      {/* Operative Shin (Tibia) */}
+      <line x1={kneeX} y1={kneeY} x2={ankleX} y2={ankleY} stroke="url(#skinGrad)" strokeWidth="22" strokeLinecap="round" />
+
+      {/* Near Foot & Athletic Trainer Shoe */}
+      <polygon points={`${ankleX - 18},380 ${ankleX + 42},380 ${ankleX + 32},362 ${ankleX - 18},362`} fill="#38bdf8" />
+      <line x1={ankleX - 18} y1="380" x2={ankleX + 42} y2="380" stroke="#ffffff" strokeWidth="3" />
+
+      {/* Knee Joint Center & Holographic Target Halo */}
+      <circle cx={kneeX} cy={kneeY} r={18} stroke={highlightColor} strokeWidth="3" fill="none" filter="url(#glowFilter)" />
+      <circle cx={kneeX} cy={kneeY} r="7" fill={highlightColor} />
+      <circle cx={kneeX} cy={kneeY} r="3" fill="#ffffff" />
+
+      {/* Vertical Alignment Plumbline: Knee tracking safely over midfoot */}
+      <line x1={kneeX} y1={kneeY} x2={kneeX} y2="380" stroke="#10b981" strokeWidth="1.5" strokeDasharray="3 3" opacity="0.65" />
+      <line x1={ankleX + 42} y1="355" x2={ankleX + 42} y2="380" stroke="#f43f5e" strokeWidth="1.2" strokeDasharray="2 2" opacity="0.45" />
+
+      {/* Alignment Verification Label */}
+      <g transform={`translate(${kneeX + 22}, ${kneeY + 4})`}>
+        <rect x="0" y="0" width="138" height="22" rx="5" fill="rgba(10,15,25,0.85)" stroke="#10b981" strokeWidth="1" />
+        <text x="69" y="14" fill="#10b981" fontSize="9.5" fontWeight="800" textAnchor="middle">
+          ✓ KNEE OVER MIDFOOT
+        </text>
+      </g>
+
+      {/* Main Dynamic Knee Angle HUD Card */}
+      <g transform={`translate(${kneeX - 60}, ${kneeY - 62})`}>
+        <rect x="0" y="0" width="158" height="30" rx="8" fill="rgba(8,12,22,0.94)" stroke={highlightColor} strokeWidth="1.4" filter="url(#glowFilter)" />
+        <text x="79" y="19" fill="#ffffff" fontSize="11" fontWeight="800" textAnchor="middle">
+          {isHoldPhase ? '35° ISOMETRIC HOLD' : `KNEE: ${kneeAngle}° (AIM 145°)`}
+        </text>
       </g>
     </g>
   );

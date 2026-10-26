@@ -125,6 +125,22 @@ export const INITIAL_PATIENTS: Patient[] = [
         category: 'Mobility',
         active: true
       },
+      { 
+        id: 'mini-squat', 
+        name: 'Mini Squats (0°–45°)', 
+        target: '10 reps · 35°–45° flexion hold', 
+        warning: 'Do not squat past 45° or let knees collapse inward.', 
+        icon: 'leg', 
+        seconds: 6, 
+        cues: [
+          'Stand tall with feet shoulder-width apart and toes forward.',
+          'Hinge hips slightly back and bend knees into a shallow squat (35°–45°).',
+          'Ensure knees track directly over second toes without caving in.',
+          'Hold the bottom for 3 seconds, then drive through heels back to full extension.'
+        ],
+        category: 'Strength',
+        active: true
+      },
     ]
   },
   {

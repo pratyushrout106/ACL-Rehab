@@ -73,10 +73,24 @@ const loadInitialPatients = (): Patient[] => {
   if (!stored || stored.length === 0) return INITIAL_PATIENTS;
   const storedIds = new Set(stored.map((p) => p.id));
   const missing = INITIAL_PATIENTS.filter((p) => !storedIds.has(p.id));
-  if (missing.length > 0) {
-    return [...stored, ...missing];
-  }
-  return stored;
+  const base = missing.length > 0 ? [...stored, ...missing] : stored;
+
+  // Ensure default Phase 1 patients have the mini squats exercise
+  return base.map((p) => {
+    if (p.currentPhase === 1) {
+      const hasMiniSquat = p.prescribedExercises.some((e) => e.id.includes('mini') || e.name.toLowerCase().includes('mini squat'));
+      if (!hasMiniSquat) {
+        const defaultMini = INITIAL_PATIENTS[0].prescribedExercises.find((e) => e.id.includes('mini'));
+        if (defaultMini) {
+          return {
+            ...p,
+            prescribedExercises: [...p.prescribedExercises, defaultMini]
+          };
+        }
+      }
+    }
+    return p;
+  });
 };
 
 const dayStamp = () => new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
@@ -875,6 +889,20 @@ function App() {
               // Patellar Mobilizations: Glide Zone
               statusText = 'PATELLA GLIDE ZONE';
               statusColor = chosenColor;
+            } else if (exercise.id.includes('mini') || (exercise.id.includes('squat') && !exercise.id.includes('split') && !exercise.id.includes('bulgarian'))) {
+              // Mini Squats: Closed-Chain 0° to 45° Target (145° internal angle)
+              if (activeAngle !== null) {
+                if (activeAngle >= 140 && activeAngle <= 155) {
+                  statusText = '✓ 35°–45° SQUAT DEPTH';
+                  statusColor = '#10b981';
+                } else if (activeAngle < 135) {
+                  statusText = '⚠️ TOO DEEP (>45° FLEX)';
+                  statusColor = '#f43f5e';
+                } else {
+                  statusText = `SQUAT: ${activeAngle}° (AIM 145°)`;
+                  statusColor = chosenColor;
+                }
+              }
             } else if (activeAngle !== null) {
               statusText = `KNEE ANGLE: ${activeAngle}°`;
             }
@@ -957,7 +985,8 @@ function App() {
                   // Compute joint angle for selected operative leg
                   const isLeft = selectedLegRef.current === 'left';
                   let angle: number | null = null;
-                  let measure = exercise.id.includes('raise') ? 'estimated hip angle' : 'estimated knee angle';
+                  let measure = exercise.id.includes('raise') ? 'estimated hip angle' :
+                    (exercise.id.includes('mini') || exercise.name.toLowerCase().includes('mini squat')) ? 'squat knee depth' : 'estimated knee angle';
 
                   if (exercise.id.includes('raise')) {
                     const hipCandidates = isLeft ? [11, 23, 25] : [12, 24, 26];
@@ -1459,6 +1488,7 @@ function App() {
     exKey.includes('raise') ? 135 :
     exKey.includes('heel') ? 110 :
     exKey.includes('patell') ? 180 :
+    (exKey.includes('mini') || (exKey.includes('squat') && !exKey.includes('split') && !exKey.includes('bulgarian'))) ? 145 :
     exKey.includes('wall') ? 60 :
     exKey.includes('step') ? 180 :
     exKey.includes('bike') ? 110 :
