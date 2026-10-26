@@ -48,6 +48,7 @@ import {
   MOTIVATIONAL_ROO_QUOTES,
   type MascotAction 
 } from './components/RooDuoMascot';
+import { PhysioClinicalReport } from './components/PhysioClinicalReport';
 import { RECOVERY_MASTERPLAN, type PhasePlan } from './data/recoveryMasterplan';
 import { INITIAL_PATIENTS, type Patient, type Exercise, type Swelling, type Entry, type Session } from './data/defaultPatients';
 
@@ -3530,110 +3531,14 @@ function ClinicianView(props: {
         </div>
       </section>
 
-      {/* Grid: Automated Summary & Check-ins */}
-      <div className="clinician-grid">
-        <section className="panel report">
-          <div className="section-head">
-            <div>
-              <h2>Automated Clinical Summary</h2>
-              <p>Generated from patient input · {dayStamp()}</p>
-            </div>
-            <FileText size={18} color="var(--accent-cyan)"/>
-          </div>
-          <div className="step-box">
-            <div className="eyebrow">RECOVERY SYNTHESIS</div>
-            <p>{summary}</p>
-          </div>
-
-          <div className="field-title" style={{ marginTop: 20 }}>
-            <span>Clinical Review Flags</span>
-            <span className="mono muted">{flags.length} flagged</span>
-          </div>
-
-          {flags.length ? (
-            flags.slice(0, 4).map((item, i) => (
-              <div className="flag" key={`${item.date}-${i}`}>
-                <ShieldAlert size={16} style={{ flexShrink: 0 }}/>
-                <span>
-                  <strong>{item.date}:</strong> Reported pain {item.pain}/10 with {item.swelling.toLowerCase()} joint effusion.
-                </span>
-              </div>
-            ))
-          ) : (
-            <div className="notice">
-              <CheckCircle2 size={16} color="var(--accent-emerald)" style={{ flexShrink: 0 }}/>
-              <span>No pain (&ge;5) or effusion flags in recent patient logs.</span>
-            </div>
-          )}
-
-          <div style={{ marginTop: 20 }}>
-            <button className="btn btn-primary" onClick={exportReport}>
-              <Download size={14}/> Download Patient CSV Summary
-            </button>
-          </div>
-        </section>
-
-        {/* Check-ins & Session Tables */}
-        <section className="panel report">
-          <div className="section-head">
-            <div>
-              <h2>Patient Log History</h2>
-              <p>Recent check-in entries for {patient.name}</p>
-            </div>
-            <HeartPulse size={18} color="var(--accent-cyan)"/>
-          </div>
-          {patient.checkins.length ? (
-            <div style={{ overflowX: 'auto' }}>
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Pain</th>
-                    <th>Effusion</th>
-                    <th>Sleep</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {patient.checkins.slice(0, 8).map((entry, i) => (
-                    <tr key={`${entry.date}-${i}`}>
-                      <td style={{ fontWeight: 500 }}>{entry.date}</td>
-                      <td>
-                        <span className="mono" style={{ color: entry.pain >= 5 ? 'var(--accent-rose)' : 'inherit', fontWeight: 600 }}>
-                          {entry.pain} / 10
-                        </span>
-                      </td>
-                      <td>
-                        <span className={`tag ${entry.swelling === 'Severe' ? 'tag-amber' : ''}`} style={{ fontSize: 10, padding: '2px 8px' }}>
-                          {entry.swelling}
-                        </span>
-                      </td>
-                      <td>{entry.sleep}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="empty">No check-ins recorded yet.</div>
-          )}
-
-          <div className="field-title" style={{ marginTop: 24 }}>
-            <span>Completed Guided Sets</span>
-            <span className="mono muted">{patient.sessions.length} sessions</span>
-          </div>
-
-          {patient.sessions.length ? (
-            patient.sessions.slice(0, 5).map((session) => (
-              <div key={session.id} className="history-item">
-                <span className="small" style={{ fontWeight: 600 }}>{session.exercise}</span>
-                <span className="mono small muted">{dateTime(session.date)}</span>
-              </div>
-            ))
-          ) : (
-            <div className="empty">No guided sets completed in this demo yet.</div>
-          )}
-        </section>
-      </div>
+      {/* CLINICAL REPORT DASHBOARD (MATCHING REFERENCE UI) */}
+      <PhysioClinicalReport 
+        patient={patient}
+        latest={latest}
+        flags={flags}
+        exportReport={exportReport}
+        openDemo={openDemo}
+      />
 
       {/* Video & Telemetry Stacked Playlist */}
       <VideoPlaylistExplorer

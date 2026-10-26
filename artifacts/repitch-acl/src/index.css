@@ -1960,3 +1960,784 @@ button:disabled {
     font-size: 54px;
   }
 }
+
+/* ==========================================================================
+   PHYSIO CLINICAL REPORT DASHBOARD (CLEAN, HYGIENIC & MINIMALISTIC UI)
+   ========================================================================== */
+.physio-report-container {
+  width: 100%;
+  margin: 10px 0 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.physio-report-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 2px;
+}
+
+.physio-report-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #2563eb;
+  margin-bottom: 4px;
+}
+
+.physio-report-title {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  color: var(--text-heading, #0f172a);
+  margin: 0;
+}
+
+.physio-report-subtitle {
+  font-size: 13px;
+  color: var(--text-muted, #64748b);
+  margin: 4px 0 0;
+  max-width: 680px;
+}
+
+.physio-report-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.physio-patient-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-light, #e2e8f0);
+  font-size: 12px;
+  color: var(--text-body, #334155);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+.physio-patient-badge .dot.online {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.5);
+}
+
+.physio-export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 9999px;
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+  transition: all 0.18s ease;
+}
+
+.physio-export-btn:hover {
+  background: #1d4ed8;
+  transform: translateY(-1.5px);
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.4);
+}
+
+/* Layout Grid: Left Column 68% + Right Column 32% */
+.physio-dashboard-layout {
+  display: grid;
+  grid-template-columns: 1.85fr 1fr;
+  gap: 22px;
+  align-items: start;
+}
+
+@media (max-width: 1080px) {
+  .physio-dashboard-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.physio-left-col,
+.physio-right-col {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+/* 3 Top Metric Stat Cards */
+.physio-metrics-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+
+@media (max-width: 680px) {
+  .physio-metrics-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.physio-stat-card {
+  background: var(--bg-card, #ffffff);
+  border-radius: 22px;
+  padding: 22px 24px;
+  border: 1px solid var(--border-light, #e2e8f0);
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.04), 0 2px 6px -1px rgba(15, 23, 42, 0.02);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
+}
+
+.physio-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 26px -4px rgba(15, 23, 42, 0.08);
+}
+
+.physio-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.physio-circle-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-card-subtle, #f1f5f9);
+  color: var(--text-body, #334155);
+}
+
+/* Signature Solid Blue Circle Button with White Up-Right Arrow */
+.physio-circle-btn-blue {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 6px 14px rgba(37, 99, 235, 0.35);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.physio-circle-btn-blue:hover {
+  background: #1d4ed8;
+  transform: translateY(-2px) scale(1.06);
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.45);
+}
+
+.physio-circle-btn-blue:active {
+  transform: scale(0.96);
+}
+
+.physio-stat-number {
+  font-size: 42px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: var(--text-heading, #0f172a);
+}
+
+.physio-stat-label {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text-muted, #94a3b8);
+  margin-top: 8px;
+}
+
+/* Middle Prescription Statistics Chart Card */
+.physio-chart-card {
+  background: var(--bg-card, #ffffff);
+  border-radius: 22px;
+  padding: 24px 26px 20px;
+  border: 1px solid var(--border-light, #e2e8f0);
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.04), 0 2px 6px -1px rgba(15, 23, 42, 0.02);
+}
+
+.physio-chart-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.physio-chart-title {
+  font-size: 15.5px;
+  font-weight: 700;
+  color: var(--text-heading, #1e293b);
+  margin: 0;
+}
+
+.physio-chart-controls {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  font-size: 12px;
+  color: var(--text-muted, #64748b);
+}
+
+.physio-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.physio-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.physio-legend-dot.blue {
+  background: #2563eb;
+  box-shadow: 0 0 6px rgba(37, 99, 235, 0.4);
+}
+
+.physio-legend-dot.green {
+  background: #22c55e;
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.4);
+}
+
+.physio-pill-dropdown {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  border-radius: 9999px;
+  background: var(--bg-card-subtle, #f8fafc);
+  border: 1px solid var(--border-light, #e2e8f0);
+  font-weight: 700;
+  font-size: 11.5px;
+  color: var(--text-body, #334155);
+  cursor: pointer;
+  transition: all 0.16s ease;
+  user-select: none;
+}
+
+.physio-pill-dropdown:hover {
+  background: var(--bg-card-hover, #f1f5f9);
+  border-color: #cbd5e1;
+}
+
+/* SVG Stepped Area Chart Container */
+.physio-svg-chart-container {
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.physio-y-axis {
+  position: absolute;
+  left: 0;
+  top: 2px;
+  bottom: 28px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+  width: 24px;
+  user-select: none;
+}
+
+.physio-chart-svg-wrap {
+  margin-left: 28px;
+  height: 230px;
+  position: relative;
+}
+
+.physio-area-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Floating Tooltip Pill (matching 'Hepatitis 18' in reference) */
+.physio-floating-tooltip {
+  position: absolute;
+  transform: translateX(-50%);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 6px 12px;
+  box-shadow: 0 10px 24px -2px rgba(15, 23, 42, 0.12);
+  pointer-events: none;
+  z-index: 10;
+  text-align: center;
+  white-space: nowrap;
+  animation: toolPop 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dark .physio-floating-tooltip {
+  background: #1e293b;
+  border-color: #334155;
+  box-shadow: 0 10px 24px -2px rgba(0, 0, 0, 0.5);
+}
+
+.physio-floating-tooltip .tooltip-title {
+  font-size: 11px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+}
+
+.dark .physio-floating-tooltip .tooltip-title {
+  color: #f8fafc;
+}
+
+.physio-floating-tooltip .tooltip-sub {
+  font-size: 10px;
+  font-weight: 700;
+  color: #2563eb;
+  margin-top: 1px;
+}
+
+.physio-floating-tooltip .tooltip-arrow {
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid #ffffff;
+}
+
+.dark .physio-floating-tooltip .tooltip-arrow {
+  border-top-color: #1e293b;
+}
+
+@keyframes toolPop {
+  0% { transform: translateX(-50%) translateY(4px) scale(0.9); opacity: 0; }
+  100% { transform: translateX(-50%) translateY(0) scale(1); opacity: 1; }
+}
+
+/* X-Axis labels matching reference layout */
+.physio-x-axis {
+  margin-left: 28px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  font-weight: 700;
+  color: #94a3b8;
+  letter-spacing: 0.05em;
+  padding-top: 14px;
+  user-select: none;
+}
+
+.physio-x-axis span.active-x {
+  color: #2563eb;
+  font-weight: 800;
+}
+
+/* Bottom Table: Recent Transactions (Clean & Minimalist) */
+.physio-table-card {
+  background: var(--bg-card, #ffffff);
+  border-radius: 22px;
+  padding: 24px 26px;
+  border: 1px solid var(--border-light, #e2e8f0);
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.04), 0 2px 6px -1px rgba(15, 23, 42, 0.02);
+}
+
+.physio-table-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.physio-table-title {
+  font-size: 15.5px;
+  font-weight: 700;
+  color: var(--text-heading, #1e293b);
+  margin: 0;
+}
+
+.physio-see-all-btn {
+  padding: 4px 14px;
+  border-radius: 9999px;
+  background: var(--bg-card-subtle, #f1f5f9);
+  border: 1px solid var(--border-light, #e2e8f0);
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-body, #475569);
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+
+.physio-see-all-btn:hover {
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #2563eb;
+}
+
+.physio-table-scroll {
+  overflow-x: auto;
+}
+
+.physio-minimal-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.physio-minimal-table th {
+  text-align: left;
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #94a3b8;
+  letter-spacing: 0.03em;
+  border-bottom: 1px solid var(--border-light, #f1f5f9);
+}
+
+.physio-minimal-table td {
+  padding: 14px 12px;
+  border-bottom: 1px solid var(--border-light, #f8fafc);
+  vertical-align: middle;
+}
+
+.physio-minimal-table tr:last-child td {
+  border-bottom: none;
+}
+
+.td-exercise-flex {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.td-index {
+  font-size: 12px;
+  font-weight: 800;
+  color: #94a3b8;
+  min-width: 20px;
+}
+
+.td-main-text {
+  font-weight: 700;
+  color: var(--text-heading, #0f172a);
+  font-size: 13px;
+}
+
+.td-sub-text {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 1px;
+}
+
+.physio-td-date {
+  color: var(--text-muted, #64748b);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.physio-td-amount strong {
+  font-weight: 700;
+  color: var(--text-heading, #0f172a);
+}
+
+.invoice-code {
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  background: var(--bg-card-subtle, #f1f5f9);
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.status-pill.optimal {
+  background: rgba(34, 197, 94, 0.12);
+  color: #15803d;
+}
+
+.status-pill.moderate {
+  background: rgba(245, 158, 11, 0.12);
+  color: #b45309;
+}
+
+/* ================= RIGHT COLUMN CARDS ================= */
+
+/* Your Overall Condition Card (Multi-Segment Gauge) */
+.physio-condition-card {
+  background: var(--bg-card, #ffffff);
+  border-radius: 22px;
+  padding: 24px 22px 20px;
+  border: 1px solid var(--border-light, #e2e8f0);
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.04), 0 2px 6px -1px rgba(15, 23, 42, 0.02);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.physio-condition-title {
+  width: 100%;
+  font-size: 15.5px;
+  font-weight: 700;
+  color: var(--text-heading, #1e293b);
+  margin: 0 0 10px;
+  text-align: left;
+}
+
+.physio-gauge-wrap {
+  position: relative;
+  width: 290px;
+  height: 290px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 4px 0 12px;
+}
+
+.physio-gauge-svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(0deg);
+}
+
+/* Callout Speech Bubble Tags around Gauge */
+.gauge-tag {
+  position: absolute;
+  padding: 4px 10px;
+  border-radius: 10px;
+  font-size: 10.5px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  z-index: 4;
+}
+
+.gauge-tag .tag-name {
+  font-weight: 600;
+}
+
+.gauge-tag .tag-val {
+  font-weight: 800;
+}
+
+.gauge-tag.tag-green {
+  top: 36px;
+  left: 20px;
+  background: #22c55e;
+  color: #ffffff;
+}
+
+.gauge-tag.tag-purple {
+  top: 14px;
+  left: 108px;
+  background: #8b5cf6;
+  color: #ffffff;
+}
+
+.gauge-tag.tag-pink {
+  top: 36px;
+  right: 18px;
+  background: #fb7185;
+  color: #ffffff;
+}
+
+.gauge-tag.tag-cyan {
+  bottom: 50px;
+  left: 36px;
+  background: var(--bg-card, #ffffff);
+  border: 1.5px solid #2563eb;
+  color: #2563eb;
+}
+
+/* Central Gauge Readout */
+.gauge-center-content {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.gauge-center-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-muted, #64748b);
+  letter-spacing: -0.01em;
+}
+
+.gauge-center-percentage {
+  font-size: 44px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: var(--text-heading, #0f172a);
+  line-height: 1;
+  margin-top: 2px;
+}
+
+.physio-gauge-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  color: var(--text-muted, #64748b);
+  background: var(--bg-card-subtle, #f8fafc);
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border-light, #f1f5f9);
+  width: 100%;
+  line-height: 1.4;
+}
+
+.footer-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #22c55e;
+  flex-shrink: 0;
+}
+
+/* Prescribed Exercise Doses 2x2 Grid (Matching Reference Screenshot) */
+.physio-doses-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+.physio-dose-card {
+  background: var(--bg-card, #ffffff);
+  border-radius: 18px;
+  padding: 16px 16px;
+  border: 1px solid var(--border-light, #e2e8f0);
+  box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.03);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 114px;
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.18s ease;
+}
+
+.physio-dose-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px -3px rgba(15, 23, 42, 0.06);
+  border-color: #cbd5e1;
+}
+
+.dose-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.dose-number {
+  font-size: 13px;
+  font-weight: 800;
+  color: #94a3b8;
+}
+
+.dose-med-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted, #64748b);
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 105px;
+}
+
+.dose-main-text {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--text-heading, #0f172a);
+  letter-spacing: -0.02em;
+}
+
+.dose-bottom-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.dose-date {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+/* Dark theme refinements for clinical report */
+.dark .physio-stat-card,
+.dark .physio-chart-card,
+.dark .physio-table-card,
+.dark .physio-condition-card,
+.dark .physio-dose-card {
+  background: #0f172a;
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 24px -2px rgba(0, 0, 0, 0.4);
+}
+
+.dark .physio-circle-icon {
+  background: #1e293b;
+  color: #cbd5e1;
+}
+
+.dark .physio-stat-number,
+.dark .dose-main-text,
+.dark .gauge-center-percentage {
+  color: #f8fafc;
+}
+
+.dark .physio-pill-dropdown,
+.dark .physio-see-all-btn {
+  background: #1e293b;
+  border-color: #334155;
+  color: #cbd5e1;
+}
+
+.dark .gauge-tag.tag-cyan {
+  background: #1e293b;
+  border-color: #38bdf8;
+  color: #38bdf8;
+}
+
+.dark .physio-minimal-table td {
+  border-bottom-color: rgba(255, 255, 255, 0.04);
+}
+
+.dark .invoice-code {
+  background: #1e293b;
+  color: #94a3b8;
+}
