@@ -2788,3 +2788,204 @@ button:disabled {
   background: #1e293b;
   color: #94a3b8;
 }
+
+/* ==========================================================================
+   DISTANCE-READABLE CAMERA HUD & 5-SECOND CELEBRATION BANNER
+   ========================================================================== */
+.distance-angle-hud {
+  position: absolute;
+  bottom: 16px;
+  left: 16px;
+  background: rgba(8, 12, 22, 0.94);
+  backdrop-filter: blur(14px);
+  border: 2.5px solid var(--hud-border, #10b981);
+  box-shadow: 0 0 32px rgba(0, 0, 0, 0.8), 0 0 24px rgba(16, 185, 129, 0.35);
+  border-radius: 18px;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 320px;
+  max-width: 460px;
+  z-index: 30;
+  user-select: none;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (max-width: 640px) {
+  .distance-angle-hud {
+    min-width: calc(100% - 32px);
+    max-width: calc(100% - 32px);
+    padding: 12px 16px;
+  }
+}
+
+.distance-hud-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.distance-hud-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #94a3b8;
+}
+
+.distance-hud-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  transition: all 0.2s ease;
+}
+
+.distance-hud-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 4px 0;
+}
+
+.distance-hud-live {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.distance-hud-digits {
+  font-size: 72px;
+  font-weight: 900;
+  line-height: 0.92;
+  font-family: 'SF Pro Display', ui-monospace, monospace;
+  letter-spacing: -0.04em;
+  text-shadow: 0 0 30px currentColor;
+  transition: color 0.15s ease;
+}
+
+.distance-hud-unit {
+  font-size: 38px;
+  font-weight: 800;
+  color: #94a3b8;
+  line-height: 1;
+}
+
+.distance-hud-target-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+}
+
+.distance-hud-target-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.distance-hud-target-val {
+  font-size: 26px;
+  font-weight: 900;
+  color: #ffffff;
+  font-family: 'SF Pro Display', ui-monospace, monospace;
+  line-height: 1;
+}
+
+.distance-hud-range-pill {
+  font-size: 11px;
+  font-weight: 750;
+  color: #a7f3d0;
+  background: rgba(16, 185, 129, 0.18);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  padding: 3px 8px;
+  border-radius: 6px;
+  letter-spacing: 0.02em;
+  margin-top: 2px;
+}
+
+.distance-hud-hold-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 8px 12px;
+}
+
+.distance-hud-hold-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+}
+
+.distance-hud-hold-bar {
+  width: 100%;
+  height: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 9999px;
+  overflow: hidden;
+  position: relative;
+}
+
+.distance-hud-hold-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #10b981, #00f2fe);
+  border-radius: 9999px;
+  transition: width 0.08s linear;
+  box-shadow: 0 0 14px rgba(16, 185, 129, 0.7);
+}
+
+.distance-hud-hold-cue {
+  font-size: 11px;
+  font-weight: 700;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hold-celebration-banner {
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.96), rgba(5, 150, 105, 0.98));
+  border: 2px solid #6ee7b7;
+  box-shadow: 0 10px 35px rgba(16, 185, 129, 0.65), 0 0 20px rgba(16, 185, 129, 0.4);
+  border-radius: 9999px;
+  padding: 12px 26px;
+  color: #ffffff;
+  font-size: 17px;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 60;
+  animation: bannerBounce 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+
+@keyframes bannerBounce {
+  0% { transform: translateX(-50%) scale(0.7) translateY(-10px); opacity: 0; }
+  60% { transform: translateX(-50%) scale(1.06) translateY(2px); opacity: 1; }
+  100% { transform: translateX(-50%) scale(1) translateY(0); opacity: 1; }
+}

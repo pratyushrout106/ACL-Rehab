@@ -48,6 +48,7 @@ import {
   type MascotAction 
 } from './components/RooDuoMascot';
 import { PhysioClinicalReport } from './components/PhysioClinicalReport';
+import { ConfettiCanvas } from './components/ConfettiCanvas';
 import { RECOVERY_MASTERPLAN, type PhasePlan } from './data/recoveryMasterplan';
 import { INITIAL_PATIENTS, type Patient, type Exercise, type Swelling, type Entry, type Session } from './data/defaultPatients';
 
@@ -103,6 +104,25 @@ const angleAt = (a: NormalizedLandmark, b: NormalizedLandmark, c: NormalizedLand
   const denominator = Math.hypot(ab.x, ab.y) * Math.hypot(cb.x, cb.y);
   if (!denominator) return null;
   return Math.round(Math.acos(Math.max(-1, Math.min(1, (ab.x * cb.x + ab.y * cb.y) / denominator))) * (180 / Math.PI));
+};
+
+export const getExerciseTargetAngle = (exercise: Exercise): number => {
+  const exKey = `${exercise.id} ${exercise.name}`.toLowerCase();
+  if (exKey.includes('quad')) return 180;
+  if (exKey.includes('raise')) return 135;
+  if (exKey.includes('heel')) return 110;
+  if (exKey.includes('patell')) return 180;
+  // Mini Squats: Target angle 145° (±5° acceptable range: 140° to 150°)
+  if (exKey.includes('mini') || (exKey.includes('squat') && !exKey.includes('split') && !exKey.includes('bulgarian'))) return 145;
+  if (exKey.includes('wall')) return 60;
+  if (exKey.includes('step')) return 180;
+  if (exKey.includes('bike')) return 110;
+  if (exKey.includes('bulgarian')) return 90;
+  if (exKey.includes('box')) return 90;
+  if (exKey.includes('jog')) return 90;
+  if (exKey.includes('cut')) return 50;
+  if (exKey.includes('skater')) return 60;
+  return 180;
 };
 
 // Roo Companion Lines: Energetic Duolingo-style recovery motivation ("come on do it etc")
@@ -235,6 +255,14 @@ class RooSoundEngine {
     gain.connect(ctx.destination);
     osc.start(now);
     osc.stop(now + 0.35);
+  }
+
+  // Celebratory cheering fanfare + rhythmic applause clapping on 5-second target hold completion
+  playTargetHoldCheer() {
+    this.playVictoryFanfare();
+    setTimeout(() => this.playClapSound(), 180);
+    setTimeout(() => this.playClapSound(), 360);
+    setTimeout(() => this.playClapSound(), 540);
   }
 }
 
@@ -466,6 +494,13 @@ function App() {
   const [selectedClipId, setSelectedClipId] = useState<string | null>(null);
   const [videoPlaybackTime, setVideoPlaybackTime] = useState(0);
 
+  // 5-second target hold timer & celebration states (with ±5° accuracy tolerance)
+  const [holdProgress, setHoldProgress] = useState<{ seconds: number; isHolding: boolean; completed: boolean }>({ seconds: 0, isHolding: false, completed: false });
+  const [showConfetti, setShowConfetti] = useState<boolean>(false);
+  const [celebrationBanner, setCelebrationBanner] = useState<string>('');
+  const holdStartRef = useRef<number | null>(null);
+  const holdCompletedRef = useRef<boolean>(false);
+
   // Selected Leg & Knee Highlight Color for ACL telemetry
   const [selectedLeg, setSelectedLeg] = useState<'left' | 'right'>(patient.affectedLeg || 'left');
   const [legColor, setLegColor] = useState<string>(patient.legHighlightColor || '#10b981');
@@ -543,6 +578,110 @@ function App() {
   const updateCurrentPatient = (updater: (prev: Patient) => Patient) => {
     setPatients((prevList) => prevList.map((p) => p.id === patient.id ? updater(p) : p));
   };
+
+  // Target Joint Angle & Accuracy (Mini Squats: 145° ±5° [140°–150°], Quad Sets: 180°, etc.)
+  const targetAngle = getExerciseTargetAngle(exercise);
+
+  // Manual Trigger for 5-Second Celebration (instant verification & clinician demo)
+  const triggerTestHoldCelebration = () => {
+    setHoldProgress({ seconds: 5, isHolding: true, completed: true });
+    rooAudio.playTargetHoldCheer();
+    speakRoo(`Awesome 5-second hold locked at ${targetAngle} degrees! Perfect knee control!`, soundEnabled, false);
+    setShowConfetti(true);
+    setCelebrationBanner(`🎉 5-SECOND TARGET LOCKED at ${targetAngle}° (±5° ACCURACY) 🎉`);
+    updateCurrentPatient((p) => ({
+      ...p,
+      repitchPoints: p.repitchPoints + 15
+    }));
+    window.setTimeout(() => {
+      setShowConfetti(false);
+      setCelebrationBanner('');
+    }, 4500);
+  };
+
+  // 5-Second Continuous Target Hold tracking effect with ±5° accuracy tolerance
+  useEffect(() => {
+    if (modal !== 'camera') {
+      holdStartRef.current = null;
+      holdCompletedRef.current = false;
+      setHoldProgress({ seconds: 0, isHolding: false, completed: false });
+      return;
+    }
+
+    const currentTarget = getExerciseTargetAngle(exercise);
+    const liveAngle = poseState.angle;
+    const isWithinTolerance = liveAngle !== null && Math.abs(liveAngle - currentTarget) <= 5;
+
+    let intervalId: number | null = null;
+
+    if (isWithinTolerance) {
+      if (holdCompletedRef.current) {
+        // Patient finished 5s hold and is still in zone
+        return;
+      }
+
+      if (holdStartRef.current === null) {
+        holdStartRef.current = Date.now();
+      }
+
+      intervalId = window.setInterval(() => {
+        if (holdStartRef.current === null) return;
+        const elapsed = (Date.now() - holdStartRef.current) / 1000;
+
+        if (elapsed >= 5.0) {
+          // Continuous 5 seconds completed!
+          holdCompletedRef.current = true;
+          holdStartRef.current = null;
+          setHoldProgress({ seconds: 5, isHolding: true, completed: true });
+
+          // 1. Celebratory audio cheer fanfare + clapping
+          rooAudio.playTargetHoldCheer();
+
+          // 2. Roo vocal encouragement
+          speakRoo(
+            `Awesome 5-second hold locked at ${liveAngle} degrees! Perfect knee control!`,
+            soundEnabled,
+            false
+          );
+
+          // 3. Trigger confetti pop-up & banner
+          setShowConfetti(true);
+          setCelebrationBanner(`🎉 5-SECOND TARGET LOCKED at ${liveAngle}° (±5° ACCURACY) 🎉`);
+
+          // 4. Award bonus Repitch points
+          updateCurrentPatient((p) => ({
+            ...p,
+            repitchPoints: p.repitchPoints + 15
+          }));
+
+          window.setTimeout(() => {
+            setShowConfetti(false);
+            setCelebrationBanner('');
+          }, 4500);
+
+          if (intervalId) clearInterval(intervalId);
+        } else {
+          setHoldProgress({
+            seconds: Math.round(elapsed * 10) / 10,
+            isHolding: true,
+            completed: false
+          });
+        }
+      }, 80);
+    } else {
+      // Patient moved outside the ±5° range
+      if (holdCompletedRef.current) {
+        // Reset completion status when relaxing out of position to allow the next repetition
+        holdCompletedRef.current = false;
+      }
+      holdStartRef.current = null;
+      setHoldProgress((prev) => (prev.seconds === 0 && !prev.isHolding ? prev : { seconds: 0, isHolding: false, completed: false }));
+    }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [poseState.angle, modal, exercise, soundEnabled]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setSeconds((s) => running ? modal === 'guided' ? Math.min(s + 1, exercise.seconds) : s + 1 : s), 1000);
@@ -891,16 +1030,16 @@ function App() {
               statusText = 'PATELLA GLIDE ZONE';
               statusColor = chosenColor;
             } else if (exercise.id.includes('mini') || (exercise.id.includes('squat') && !exercise.id.includes('split') && !exercise.id.includes('bulgarian'))) {
-              // Mini Squats: Closed-Chain 0° to 45° Target (145° internal angle)
+              // Mini Squats: Closed-Chain 0° to 45° Target (145° ±5°: acceptable 140° to 150°)
               if (activeAngle !== null) {
-                if (activeAngle >= 140 && activeAngle <= 155) {
-                  statusText = '✓ 35°–45° SQUAT DEPTH';
+                if (Math.abs(activeAngle - 145) <= 5) {
+                  statusText = '✓ 145° TARGET LOCK (±5°)';
                   statusColor = '#10b981';
-                } else if (activeAngle < 135) {
-                  statusText = '⚠️ TOO DEEP (>45° FLEX)';
+                } else if (activeAngle < 140) {
+                  statusText = `⚠️ TOO DEEP: ${activeAngle}° (<140°)`;
                   statusColor = '#f43f5e';
                 } else {
-                  statusText = `SQUAT: ${activeAngle}° (AIM 145°)`;
+                  statusText = `SQUAT: AIM 140°–150° (CUR: ${activeAngle}°)`;
                   statusColor = chosenColor;
                 }
               }
@@ -908,22 +1047,22 @@ function App() {
               statusText = `KNEE ANGLE: ${activeAngle}°`;
             }
 
-            // Floating Knee HUD Card
+            // Floating Knee HUD Card (Enlarged for distance readability)
             ctx.save();
-            const pillX = Math.min(kx + 28, width - 190);
-            const pillY = Math.max(ky - 24, 70);
-            const pillW = 168;
-            const pillH = statusText ? 44 : 28;
+            const pillX = Math.min(kx + 28, width - 230);
+            const pillY = Math.max(ky - 30, 80);
+            const pillW = 210;
+            const pillH = statusText ? 56 : 36;
 
-            ctx.fillStyle = 'rgba(10, 15, 25, 0.9)';
+            ctx.fillStyle = 'rgba(8, 12, 22, 0.94)';
             if (typeof ctx.roundRect === 'function') {
               ctx.beginPath();
-              ctx.roundRect(pillX, pillY, pillW, pillH, 8);
+              ctx.roundRect(pillX, pillY, pillW, pillH, 10);
               ctx.fill();
               ctx.strokeStyle = statusColor;
-              ctx.lineWidth = 1.2;
+              ctx.lineWidth = 2.2;
               ctx.beginPath();
-              ctx.roundRect(pillX, pillY, pillW, pillH, 8);
+              ctx.roundRect(pillX, pillY, pillW, pillH, 10);
               ctx.stroke();
             } else {
               ctx.fillRect(pillX, pillY, pillW, pillH);
@@ -932,19 +1071,19 @@ function App() {
             }
 
             ctx.fillStyle = '#ffffff';
-            ctx.font = '700 11px Inter, sans-serif';
-            ctx.fillText(`${isLeft ? 'L' : 'R'} KNEE JOINT`, pillX + 10, pillY + 16);
+            ctx.font = '800 13px Inter, sans-serif';
+            ctx.fillText(`${isLeft ? 'L' : 'R'} KNEE JOINT`, pillX + 12, pillY + 20);
 
             if (activeAngle !== null) {
-              ctx.fillStyle = chosenColor;
-              ctx.font = '700 11px monospace';
-              ctx.fillText(`${activeAngle}°`, pillX + pillW - 36, pillY + 16);
+              ctx.fillStyle = statusColor;
+              ctx.font = '900 18px monospace';
+              ctx.fillText(`${activeAngle}°`, pillX + pillW - 48, pillY + 21);
             }
 
             if (statusText) {
               ctx.fillStyle = statusColor;
-              ctx.font = '600 9.5px Inter, sans-serif';
-              ctx.fillText(statusText, pillX + 10, pillY + 34);
+              ctx.font = '700 12px Inter, sans-serif';
+              ctx.fillText(statusText, pillX + 12, pillY + 44);
             }
             ctx.restore();
           }
@@ -1483,22 +1622,6 @@ function App() {
 
   const latest = patient.checkins[0];
   const flags = patient.checkins.filter((entry) => entry.pain >= 5 || entry.swelling === 'Severe' || entry.swelling === 'Moderate');
-  const exKey = `${exercise.id} ${exercise.name}`.toLowerCase();
-  const targetAngle = 
-    exKey.includes('quad') ? 180 :
-    exKey.includes('raise') ? 135 :
-    exKey.includes('heel') ? 110 :
-    exKey.includes('patell') ? 180 :
-    (exKey.includes('mini') || (exKey.includes('squat') && !exKey.includes('split') && !exKey.includes('bulgarian'))) ? 145 :
-    exKey.includes('wall') ? 60 :
-    exKey.includes('step') ? 180 :
-    exKey.includes('bike') ? 110 :
-    exKey.includes('bulgarian') ? 90 :
-    exKey.includes('box') ? 90 :
-    exKey.includes('jog') ? 90 :
-    exKey.includes('cut') ? 50 :
-    exKey.includes('skater') ? 60 :
-    180;
   const remainingSeconds = modal === 'guided' && step === exercise.cues.length - 1 ? Math.max(0, exercise.seconds - seconds) : seconds;
   const formattedTimer = `${String(Math.floor(remainingSeconds / 60)).padStart(2, '0')}:${String(remainingSeconds % 60).padStart(2, '0')}`;
 
@@ -1976,6 +2099,17 @@ function App() {
                         <div className="alignment-frame" style={{ borderColor: legColor, boxShadow: `0 0 35px ${legColor}33` }}/>
                       </div>
 
+                      {/* Confetti Celebration Overlay */}
+                      <ConfettiCanvas active={showConfetti} durationMs={4500} />
+
+                      {/* Celebration Banner Overlay */}
+                      {celebrationBanner && (
+                        <div className="hold-celebration-banner">
+                          <Trophy size={20} color="#fde047" />
+                          <span>{celebrationBanner}</span>
+                        </div>
+                      )}
+
                       {/* Top Left: Tracking Info Badge */}
                       <div style={{
                         position: 'absolute',
@@ -1999,51 +2133,113 @@ function App() {
                         </span>
                       </div>
 
-                      {/* Prominent Real-Time Knee Angle HUD directly on camera */}
-                      <div style={{
-                        position: 'absolute',
-                        bottom: 14,
-                        left: 14,
-                        background: 'rgba(8, 12, 22, 0.94)',
-                        backdropFilter: 'blur(10px)',
-                        border: `2px solid ${legColor}`,
-                        boxShadow: `0 0 24px ${legColor}55`,
-                        borderRadius: 12,
-                        padding: '8px 14px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 12,
-                        zIndex: 15
-                      }}>
-                        <Activity size={24} color={legColor} />
-                        <div>
-                          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                            <span style={{ fontSize: 32, fontWeight: 900, fontFamily: 'monospace', color: legColor, lineHeight: 1 }}>
-                              {poseState.angle !== null ? `${poseState.angle}°` : '—'}
-                            </span>
-                            <span style={{ fontSize: 10.5, fontWeight: 800, color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                              {poseState.measure || 'ESTIMATED KNEE ANGLE'}
-                            </span>
+                      {/* Distance-Readable Hero Angle HUD & 5-Second Hold Meter */}
+                      {(() => {
+                        const isLocked = targetAngle !== null && poseState.angle !== null && Math.abs(poseState.angle - targetAngle) <= 5;
+                        const isTooDeep = targetAngle !== null && poseState.angle !== null && poseState.angle < targetAngle - 5;
+                        const isTooShallow = targetAngle !== null && poseState.angle !== null && poseState.angle > targetAngle + 5;
+                        const delta = targetAngle !== null && poseState.angle !== null ? Math.abs(poseState.angle - targetAngle) : null;
+                        const activeHudColor = isLocked ? '#10b981' : isTooDeep ? '#f43f5e' : legColor;
+
+                        return (
+                          <div 
+                            className="distance-angle-hud"
+                            style={{
+                              borderColor: activeHudColor,
+                              boxShadow: isLocked 
+                                ? '0 0 32px rgba(0,0,0,0.85), 0 0 28px rgba(16,185,129,0.5)' 
+                                : `0 0 24px rgba(0,0,0,0.8), 0 0 16px ${activeHudColor}33`
+                            }}
+                          >
+                            {/* HUD Top Header: Kinematic Info & Status Pill */}
+                            <div className="distance-hud-header">
+                              <div className="distance-hud-title">
+                                <Activity size={16} color={activeHudColor} />
+                                <span>{poseState.measure || 'Knee Kinematics'}</span>
+                              </div>
+                              <div 
+                                className="distance-hud-status-badge"
+                                style={{
+                                  background: isLocked ? 'rgba(16,185,129,0.22)' : isTooDeep ? 'rgba(244,63,94,0.22)' : 'rgba(255,255,255,0.08)',
+                                  color: isLocked ? '#34d399' : isTooDeep ? '#fb7185' : '#cbd5e1',
+                                  border: `1px solid ${isLocked ? '#10b981' : isTooDeep ? '#f43f5e' : 'rgba(255,255,255,0.15)'}`
+                                }}
+                              >
+                                {isLocked ? (
+                                  <>
+                                    <Sparkles size={12} color="#34d399" />
+                                    <span>✓ ON TARGET (±5°)</span>
+                                  </>
+                                ) : isTooDeep ? (
+                                  <span>⚠️ TOO DEEP ({poseState.angle}° &lt; {targetAngle !== null ? targetAngle - 5 : 140}°)</span>
+                                ) : isTooShallow ? (
+                                  <span>SQUAT DEEPER (AIM {targetAngle !== null ? `${targetAngle - 5}°–${targetAngle + 5}°` : '140°–150°'})</span>
+                                ) : (
+                                  <span>STAND IN VIEW</span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* HUD Middle Row: Giant Live Angle + Target Zone */}
+                            <div className="distance-hud-main">
+                              <div className="distance-hud-live">
+                                <span className="distance-hud-digits" style={{ color: activeHudColor }}>
+                                  {poseState.angle !== null ? poseState.angle : '—'}
+                                </span>
+                                <span className="distance-hud-unit">°</span>
+                              </div>
+
+                              <div className="distance-hud-target-block">
+                                <span className="distance-hud-target-label">Target Angle</span>
+                                <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                                  <span className="distance-hud-target-val">{targetAngle !== null ? `${targetAngle}°` : '180°'}</span>
+                                  {delta !== null && (
+                                    <span style={{ fontSize: 13, fontWeight: 800, color: isLocked ? '#10b981' : '#f59e0b' }}>
+                                      (Δ {delta}°)
+                                    </span>
+                                  )}
+                                </div>
+                                <span className="distance-hud-range-pill">
+                                  ±5° ZONE: {targetAngle !== null ? `${targetAngle - 5}° – ${targetAngle + 5}°` : '140°–150°'}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* HUD Bottom: 5-Second Continuous Hold Progress Meter */}
+                            <div className="distance-hud-hold-section">
+                              <div className="distance-hud-hold-header">
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 800, color: holdProgress.completed ? '#10b981' : '#e2e8f0', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                  <Clock3 size={13} color={holdProgress.completed ? '#10b981' : '#38bdf8'} />
+                                  <span>5s Target Hold</span>
+                                </div>
+                                <span style={{ fontWeight: 900, fontFamily: 'monospace', fontSize: 13, color: holdProgress.completed ? '#10b981' : '#ffffff' }}>
+                                  {holdProgress.seconds.toFixed(1)}s / 5.0s
+                                </span>
+                              </div>
+
+                              <div className="distance-hud-hold-bar">
+                                <div 
+                                  className="distance-hud-hold-fill"
+                                  style={{
+                                    width: `${(holdProgress.seconds / 5) * 100}%`,
+                                    background: holdProgress.completed ? '#10b981' : isLocked ? 'linear-gradient(90deg, #10b981, #00f2fe)' : 'rgba(255,255,255,0.2)'
+                                  }}
+                                />
+                              </div>
+
+                              <div className="distance-hud-hold-cue">
+                                {holdProgress.completed ? (
+                                  <span style={{ color: '#34d399', fontWeight: 800 }}>🎉 5-Second Target Hold Achieved! Repetition Validated!</span>
+                                ) : holdProgress.isHolding ? (
+                                  <span style={{ color: '#38bdf8', fontWeight: 800 }}>🔥 Holding steady... {(5 - holdProgress.seconds).toFixed(1)}s to celebration</span>
+                                ) : (
+                                  <span>Hold at {targetAngle !== null ? targetAngle : 145}° (±5°) for 5s to trigger celebration fanfare</span>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
-                            <span style={{ fontSize: 10.5, color: '#94a3b8' }}>
-                              Target: <strong style={{ color: '#ffffff' }}>{targetAngle !== null ? `${targetAngle}°` : '180°'}</strong>
-                            </span>
-                            {targetAngle !== null && poseState.angle !== null && (
-                              <span style={{
-                                fontSize: 10,
-                                fontWeight: 800,
-                                color: Math.abs(poseState.angle - targetAngle) <= 5 ? '#10b981' : '#f59e0b',
-                                background: Math.abs(poseState.angle - targetAngle) <= 5 ? 'rgba(16,185,129,0.2)' : 'rgba(245,158,11,0.2)',
-                                padding: '1px 6px',
-                                borderRadius: 4
-                              }}>
-                                {Math.abs(poseState.angle - targetAngle) <= 5 ? '✓ ON TARGET' : `Δ ${Math.abs(poseState.angle - targetAngle)}°`}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
+                        );
+                      })()}
 
                       {/* Top Right: Biomechanical Exercise Demo Overlay */}
                       {showDemoInCamera && (
@@ -2085,6 +2281,14 @@ function App() {
                       </div>
 
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <button 
+                          className="btn btn-quiet" 
+                          style={{ padding: '6px 12px', fontSize: 12, borderColor: '#10b981', color: '#10b981' }} 
+                          onClick={triggerTestHoldCelebration}
+                          title="Simulate 5s continuous hold celebration (confetti + cheering fanfare)"
+                        >
+                          <Sparkles size={14}/> Test 5s Celebration 🎉
+                        </button>
                         <button 
                           className={`btn ${recording ? 'btn-danger' : 'btn-primary'}`} 
                           style={{ padding: '6px 14px', fontSize: 12 }} 
