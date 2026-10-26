@@ -43,7 +43,6 @@ import { ExerciseCharacterDemo } from './components/ExerciseCharacterDemo';
 import { VideoPlaylistExplorer, type VideoClipEntry, type TelemetryPoint } from './components/VideoPlaylistExplorer';
 import { 
   RooDuoMascot, 
-  RooOnScreenExerciseCoach,
   RooBetweenExercisePopup, 
   MOTIVATIONAL_ROO_QUOTES,
   type MascotAction 
@@ -470,8 +469,6 @@ function App() {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [guidedSpeech, setGuidedSpeech] = useState<string>(ROO_LINES.greetings[0]);
   const [guidedMood, setGuidedMood] = useState<'idle' | 'cheering' | 'wondering'>('idle');
-  const [cameraSpeech, setCameraSpeech] = useState<string>("Come on, do it! Position your knee and push through!");
-  const [cameraMascotAction, setCameraMascotAction] = useState<MascotAction>('jumping');
   const lastCheerSecRef = useRef<number>(-1);
 
   // Duolingo Roo between-exercise motivation popup ("come on do it etc")
@@ -598,38 +595,7 @@ function App() {
       }
       return;
     }
-
-    // B. AI Camera Mode Coaching
-    if (modal === 'camera') {
-      if (recording && running) {
-        if (seconds === 1 && lastCheerSecRef.current !== 1) {
-          lastCheerSecRef.current = 1;
-          const msg = "Come on, do it! Keep that knee strong and steady!";
-          setCameraSpeech(msg);
-          setCameraMascotAction('clapping');
-          speakRoo(msg, soundEnabled);
-        } else if (seconds === 10 && lastCheerSecRef.current !== 10) {
-          lastCheerSecRef.current = 10;
-          const msg = "Looking super strong! Come on, keep that quad engaged!";
-          setCameraSpeech(msg);
-          setCameraMascotAction('clapping');
-          speakRoo(msg, soundEnabled);
-        } else if (seconds === 15 && lastCheerSecRef.current !== 15) {
-          lastCheerSecRef.current = 15;
-          const msg = "Halfway through the recording! Come on, push through!";
-          setCameraSpeech(msg);
-          setCameraMascotAction('jumping');
-          speakRoo(msg, soundEnabled);
-        } else if (seconds === 25 && lastCheerSecRef.current !== 25) {
-          lastCheerSecRef.current = 25;
-          const msg = "Almost there! 3, 2, 1... finish strong, come on!";
-          setCameraSpeech(msg);
-          setCameraMascotAction('clapping');
-          speakRoo(msg, soundEnabled);
-        }
-      }
-    }
-  }, [modal, step, running, recording, seconds, exercise.seconds, exercise.cues.length, soundEnabled]);
+  }, [modal, step, running, seconds, exercise.seconds, exercise.cues.length, soundEnabled]);
 
   useEffect(() => {
     if (videoRef.current && stream) videoRef.current.srcObject = stream;
@@ -1151,10 +1117,6 @@ function App() {
   const startCamera = async (item: Exercise) => {
     const requestId = ++cameraRequestRef.current;
     setExercise(item); setCameraError(''); setModal('camera'); setRecording(false);
-    const welcomeMsg = `Come on, do it! Position your knee for ${item.name}!`;
-    setCameraSpeech(welcomeMsg);
-    setCameraMascotAction('jumping');
-    speakRoo(welcomeMsg, soundEnabled);
     try {
       if (!navigator.mediaDevices?.getUserMedia) throw new Error('Camera access is not supported in this browser.');
       const nextStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
@@ -1250,14 +1212,6 @@ function App() {
         })
           .then(() => {
             setToast(`Saved "${exerciseName}" to video playlist.`);
-            triggerMascotReaction('party', `Awesome job! Saved "${exerciseName}" to your video playlist! 🎉`, soundEnabled);
-            const curIdx = patient.routine.findIndex((e) => e.id === exercise.id);
-            const nextEx = curIdx !== -1 && curIdx + 1 < patient.routine.length ? patient.routine[curIdx + 1] : patient.routine[0];
-            setBetweenExerciseModal({
-              open: true,
-              completedEx: exercise,
-              nextEx: nextEx
-            });
           })
           .catch(() => setCameraError('Clip storage error.'));
 
@@ -1267,10 +1221,6 @@ function App() {
       setSeconds(0);
       setRunning(true);
       setRecording(true);
-      const startMsg = "Recording started! Come on, hold that knee steady!";
-      setCameraSpeech(startMsg);
-      setCameraMascotAction('clapping');
-      speakRoo(startMsg, soundEnabled);
     } catch {
       setCameraError('Could not start recording.');
     }
@@ -1859,7 +1809,7 @@ function App() {
               )}
             </section>
           ) : (
-            <section className={`modal ${showDemoInCamera ? 'modal-camera' : ''}`} style={{ maxWidth: showDemoInCamera ? 1280 : 760, width: '96vw', transition: 'max-width 0.25s ease' }} role="dialog" aria-modal="true" aria-labelledby="camera-title">
+            <section className="modal modal-camera" style={{ maxWidth: 1340, width: '96vw' }} role="dialog" aria-modal="true" aria-labelledby="camera-title">
               <div className="modal-head">
                 <div>
                   <div className="eyebrow"><Zap size={12}/> AI COMPUTER VISION ASSIST</div>
@@ -1972,196 +1922,180 @@ function App() {
                     }}
                   >
                     <Sparkles size={13} color="#00f2fe"/>
-                    {showDemoInCamera ? 'Character Demo: ON' : 'Show Demo Guide'}
+                    {showDemoInCamera ? 'Demo Guide (Top-Right): ON' : 'Show Demo Guide'}
                   </button>
                 </div>
               </div>
 
               <div 
-                className="camera-split-container"
+                className="camera-stage-wrapper"
                 style={{
-                  display: 'grid',
-                  gridTemplateColumns: showDemoInCamera ? 'minmax(0, 1.15fr) minmax(0, 1fr)' : '1fr',
-                  gap: 20,
-                  alignItems: 'start'
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 12,
+                  width: '100%'
                 }}
               >
-                {/* Left Column: Camera Stage, Pose Telemetry & Controls */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {stream ? (
-                    <>
-                      <div className="camera-stage">
-                        <video ref={videoRef} className="camera-view" autoPlay muted playsInline style={{ opacity: 0 }} />
-                        <div className="camera-overlay">
-                          <canvas ref={poseCanvasRef} className="pose-canvas" style={{ transform: 'none' }} aria-hidden="true"/>
-                          <div className="alignment-frame" style={{ borderColor: legColor, boxShadow: `0 0 35px ${legColor}33` }}/>
-                        </div>
-
-                        {/* Top Left: Tracking Info Badge */}
-                        <div style={{
-                          position: 'absolute',
-                          top: 10,
-                          left: 10,
-                          background: 'rgba(10, 15, 25, 0.88)',
-                          backdropFilter: 'blur(8px)',
-                          border: '1px solid rgba(255,255,255,0.15)',
-                          borderRadius: 8,
-                          padding: '5px 10px',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: 1,
-                          zIndex: 10
-                        }}>
-                          <span style={{ fontSize: 10.5, fontWeight: 800, color: '#ffffff', letterSpacing: '0.03em', textTransform: 'uppercase' }}>
-                            {exercise.name}
-                          </span>
-                          <span style={{ fontSize: 9, fontWeight: 700, color: legColor, textTransform: 'uppercase' }}>
-                            TARGET: {selectedLeg.toUpperCase()} LEG {patient.affectedLeg === selectedLeg ? '(OPERATIVE)' : ''}
-                          </span>
-                        </div>
-
-                        {/* Prominent Real-Time Knee Angle HUD directly on camera */}
-                        <div style={{
-                          position: 'absolute',
-                          bottom: 12,
-                          left: 12,
-                          background: 'rgba(8, 12, 22, 0.94)',
-                          backdropFilter: 'blur(10px)',
-                          border: `2px solid ${legColor}`,
-                          boxShadow: `0 0 24px ${legColor}55`,
-                          borderRadius: 12,
-                          padding: '8px 14px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 12,
-                          zIndex: 10
-                        }}>
-                          <Activity size={24} color={legColor} />
-                          <div>
-                            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                              <span style={{ fontSize: 32, fontWeight: 900, fontFamily: 'monospace', color: legColor, lineHeight: 1 }}>
-                                {poseState.angle !== null ? `${poseState.angle}°` : '—'}
-                              </span>
-                              <span style={{ fontSize: 10.5, fontWeight: 800, color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                                {poseState.measure || 'ESTIMATED KNEE ANGLE'}
-                              </span>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
-                              <span style={{ fontSize: 10.5, color: '#94a3b8' }}>
-                                Target: <strong style={{ color: '#ffffff' }}>{targetAngle !== null ? `${targetAngle}°` : '180°'}</strong>
-                              </span>
-                              {targetAngle !== null && poseState.angle !== null && (
-                                <span style={{
-                                  fontSize: 10,
-                                  fontWeight: 800,
-                                  color: Math.abs(poseState.angle - targetAngle) <= 5 ? '#10b981' : '#f59e0b',
-                                  background: Math.abs(poseState.angle - targetAngle) <= 5 ? 'rgba(16,185,129,0.2)' : 'rgba(245,158,11,0.2)',
-                                  padding: '1px 6px',
-                                  borderRadius: 4
-                                }}>
-                                  {Math.abs(poseState.angle - targetAngle) <= 5 ? '✓ ON TARGET' : `Δ ${Math.abs(poseState.angle - targetAngle)}°`}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Roo Mascot pops up ON THE CAMERA SCREEN while exercising */}
-                        <RooOnScreenExerciseCoach
-                          action={recording ? cameraMascotAction : 'jumping'}
-                          speech={cameraSpeech}
-                          soundEnabled={soundEnabled}
-                          size="sm"
-                        />
+                {stream ? (
+                  <>
+                    <div className="camera-stage">
+                      <video ref={videoRef} className="camera-view" autoPlay muted playsInline style={{ opacity: 0 }} />
+                      <div className="camera-overlay">
+                        <canvas ref={poseCanvasRef} className="pose-canvas" style={{ transform: 'none' }} aria-hidden="true"/>
+                        <div className="alignment-frame" style={{ borderColor: legColor, boxShadow: `0 0 35px ${legColor}33` }}/>
                       </div>
 
-                      {/* Compact Bottom Bar: Status Indicator & Action Buttons */}
+                      {/* Top Left: Tracking Info Badge */}
                       <div style={{
+                        position: 'absolute',
+                        top: 12,
+                        left: 12,
+                        background: 'rgba(10, 15, 25, 0.88)',
+                        backdropFilter: 'blur(8px)',
+                        border: '1px solid rgba(255,255,255,0.15)',
+                        borderRadius: 8,
+                        padding: '6px 12px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 2,
+                        zIndex: 15
+                      }}>
+                        <span style={{ fontSize: 11, fontWeight: 800, color: '#ffffff', letterSpacing: '0.03em', textTransform: 'uppercase' }}>
+                          {exercise.name}
+                        </span>
+                        <span style={{ fontSize: 9.5, fontWeight: 700, color: legColor, textTransform: 'uppercase' }}>
+                          TARGET: {selectedLeg.toUpperCase()} LEG {patient.affectedLeg === selectedLeg ? '(OPERATIVE)' : ''}
+                        </span>
+                      </div>
+
+                      {/* Prominent Real-Time Knee Angle HUD directly on camera */}
+                      <div style={{
+                        position: 'absolute',
+                        bottom: 14,
+                        left: 14,
+                        background: 'rgba(8, 12, 22, 0.94)',
+                        backdropFilter: 'blur(10px)',
+                        border: `2px solid ${legColor}`,
+                        boxShadow: `0 0 24px ${legColor}55`,
+                        borderRadius: 12,
+                        padding: '8px 14px',
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: 10,
-                        flexWrap: 'wrap',
-                        padding: '10px 14px',
-                        background: 'var(--bg-card-subtle)',
-                        border: '1px solid var(--border-card)',
-                        borderRadius: 12,
+                        gap: 12,
+                        zIndex: 15
                       }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span className={`pose-dot ${poseState.status}`} style={{ width: 8, height: 8 }} />
-                          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>
-                            {poseState.status === 'loading' ? 'Loading model...' :
-                             poseState.status === 'error' ? 'Pose unavailable' :
-                             poseState.status === 'searching' ? 'Searching for joint landmarks...' :
-                             '100% On-Device Pose Tracking Active'}
-                          </span>
-                        </div>
-
-                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                          <button 
-                            className={`btn ${recording ? 'btn-danger' : 'btn-primary'}`} 
-                            style={{ padding: '6px 14px', fontSize: 12 }} 
-                            onClick={recording ? stopRecording : recordVideo}
-                          >
-                            {recording ? (
-                              <>
-                                <span className="tag" style={{ background: '#51232a', color: '#ffb3b3' }}>REC {formattedTimer}</span>
-                                Stop & Save
-                              </>
-                            ) : (
-                              <>
-                                <Video size={14}/> Record Clip (max 30s)
-                              </>
+                        <Activity size={24} color={legColor} />
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                            <span style={{ fontSize: 32, fontWeight: 900, fontFamily: 'monospace', color: legColor, lineHeight: 1 }}>
+                              {poseState.angle !== null ? `${poseState.angle}°` : '—'}
+                            </span>
+                            <span style={{ fontSize: 10.5, fontWeight: 800, color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                              {poseState.measure || 'ESTIMATED KNEE ANGLE'}
+                            </span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
+                            <span style={{ fontSize: 10.5, color: '#94a3b8' }}>
+                              Target: <strong style={{ color: '#ffffff' }}>{targetAngle !== null ? `${targetAngle}°` : '180°'}</strong>
+                            </span>
+                            {targetAngle !== null && poseState.angle !== null && (
+                              <span style={{
+                                fontSize: 10,
+                                fontWeight: 800,
+                                color: Math.abs(poseState.angle - targetAngle) <= 5 ? '#10b981' : '#f59e0b',
+                                background: Math.abs(poseState.angle - targetAngle) <= 5 ? 'rgba(16,185,129,0.2)' : 'rgba(245,158,11,0.2)',
+                                padding: '1px 6px',
+                                borderRadius: 4
+                              }}>
+                                {Math.abs(poseState.angle - targetAngle) <= 5 ? '✓ ON TARGET' : `Δ ${Math.abs(poseState.angle - targetAngle)}°`}
+                              </span>
                             )}
-                          </button>
-                          <button 
-                            className="btn btn-quiet" 
-                            style={{ padding: '6px 14px', fontSize: 12 }} 
-                            onClick={() => { closeModal(); launchGuided(exercise); }}
-                          >
-                            <Play size={14}/> Guided Set
-                          </button>
+                          </div>
                         </div>
                       </div>
-                    </>
-                  ) : (
-                    <div className="empty" style={{ minHeight: 340, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                      <Camera size={34} style={{ color: 'var(--accent-cyan)', margin: '0 auto 12px' }}/>
-                      <p>{cameraError || 'Request camera access to see live joint tracking.'}</p>
-                      {!cameraError && (
-                        <button className="btn btn-primary" onClick={() => void startCamera(exercise)} style={{ margin: '8px auto 0' }}>
-                          <Camera size={15}/> Enable camera
-                        </button>
+
+                      {/* Top Right: Biomechanical Exercise Demo Overlay */}
+                      {showDemoInCamera && (
+                        <div className="camera-corner-demo">
+                          <ExerciseCharacterDemo
+                            exerciseId={exercise.id}
+                            exerciseName={exercise.name}
+                            target={exercise.target}
+                            warning={exercise.warning}
+                            cues={exercise.cues}
+                            compact={true}
+                            highlightColor={legColor}
+                            onClose={() => setShowDemoInCamera(false)}
+                          />
+                        </div>
                       )}
                     </div>
-                  )}
 
-                  {cameraError && (
-                    <div className="flag">
-                      <CircleHelp size={16}/>
-                      <span>{cameraError}</span>
-                    </div>
-                  )}
-                </div>
+                    {/* Compact Bottom Bar: Status Indicator & Action Buttons */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 10,
+                      flexWrap: 'wrap',
+                      padding: '10px 14px',
+                      background: 'var(--bg-card-subtle)',
+                      border: '1px solid var(--border-card)',
+                      borderRadius: 12,
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span className={`pose-dot ${poseState.status}`} style={{ width: 8, height: 8 }} />
+                        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>
+                          {poseState.status === 'loading' ? 'Loading model...' :
+                           poseState.status === 'error' ? 'Pose unavailable' :
+                           poseState.status === 'searching' ? 'Searching for joint landmarks...' :
+                           '100% On-Device Pose Tracking Active'}
+                        </span>
+                      </div>
 
-                {/* Right Column: Character Demo Guide Side-by-Side */}
-                {showDemoInCamera && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px' }}>
-                      <span className="eyebrow" style={{ color: 'var(--accent-cyan)', margin: 0 }}>
-                        <Sparkles size={12}/> Biomechanical Avatar Guide
-                      </span>
-                      <span className="small muted">Match kinematics side-by-side</span>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <button 
+                          className={`btn ${recording ? 'btn-danger' : 'btn-primary'}`} 
+                          style={{ padding: '6px 14px', fontSize: 12 }} 
+                          onClick={recording ? stopRecording : recordVideo}
+                        >
+                          {recording ? (
+                            <>
+                              <span className="tag" style={{ background: '#51232a', color: '#ffb3b3' }}>REC {formattedTimer}</span>
+                              Stop & Save
+                            </>
+                          ) : (
+                            <>
+                              <Video size={14}/> Record Clip (max 30s)
+                            </>
+                          )}
+                        </button>
+                        <button 
+                          className="btn btn-quiet" 
+                          style={{ padding: '6px 14px', fontSize: 12 }} 
+                          onClick={() => { closeModal(); launchGuided(exercise); }}
+                        >
+                          <Play size={14}/> Guided Set
+                        </button>
+                      </div>
                     </div>
-                    <ExerciseCharacterDemo
-                      exerciseId={exercise.id}
-                      exerciseName={exercise.name}
-                      target={exercise.target}
-                      warning={exercise.warning}
-                      cues={exercise.cues}
-                      compact={false}
-                      highlightColor={legColor}
-                    />
+                  </>
+                ) : (
+                  <div className="empty" style={{ minHeight: 460, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                    <Camera size={40} style={{ color: 'var(--accent-cyan)', margin: '0 auto 12px' }}/>
+                    <p>{cameraError || 'Request camera access to see live joint tracking.'}</p>
+                    {!cameraError && (
+                      <button className="btn btn-primary" onClick={() => void startCamera(exercise)} style={{ margin: '8px auto 0' }}>
+                        <Camera size={15}/> Enable camera
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {cameraError && (
+                  <div className="flag">
+                    <CircleHelp size={16}/>
+                    <span>{cameraError}</span>
                   </div>
                 )}
               </div>

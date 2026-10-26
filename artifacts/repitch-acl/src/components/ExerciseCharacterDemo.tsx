@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, Pause, CheckCircle2, Activity } from 'lucide-react';
+import { Play, Pause, CheckCircle2, Activity, X } from 'lucide-react';
 
 export interface ExerciseCharacterDemoProps {
   exerciseId: string;
@@ -10,6 +10,7 @@ export interface ExerciseCharacterDemoProps {
   compact?: boolean;
   activeLeg?: 'left' | 'right';
   highlightColor?: string;
+  onClose?: () => void;
 }
 
 export function ExerciseCharacterDemo({
@@ -19,6 +20,7 @@ export function ExerciseCharacterDemo({
   cues = ['Maintain steady breathing.', 'Focus on controlled form.', 'Do not rush the movement.'],
   compact = false,
   highlightColor = '#10b981',
+  onClose,
 }: ExerciseCharacterDemoProps) {
   const [isPlaying, setIsPlaying] = useState(true);
   const [speed, setSpeed] = useState<number>(1);
@@ -271,7 +273,7 @@ export function ExerciseCharacterDemo({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '8px 14px',
+          padding: compact ? '6px 10px' : '8px 14px',
           background: 'rgba(0, 0, 0, 0.35)',
           borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
         }}
@@ -288,14 +290,14 @@ export function ExerciseCharacterDemo({
           />
           <span
             style={{
-              fontSize: 11,
+              fontSize: compact ? 10 : 11,
               fontWeight: 800,
               color: '#ffffff',
               letterSpacing: '0.04em',
               textTransform: 'uppercase',
             }}
           >
-            CHARACTER DEMO: {exerciseName}
+            {compact ? 'REFERENCE DEMO' : `CHARACTER DEMO: ${exerciseName}`}
           </span>
         </div>
 
@@ -303,21 +305,44 @@ export function ExerciseCharacterDemo({
           {isHoldPhase && (
             <span
               style={{
-                fontSize: 9.5,
+                fontSize: 9,
                 fontWeight: 800,
                 color: '#10b981',
                 background: 'rgba(16, 185, 129, 0.15)',
                 border: '1px solid #10b981',
-                padding: '2px 7px',
+                padding: '2px 6px',
                 borderRadius: 999,
                 display: 'flex',
                 alignItems: 'center',
                 gap: 4,
               }}
             >
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981' }} />
-              ISOMETRIC HOLD
+              <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#10b981' }} />
+              HOLD
             </span>
+          )}
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                background: 'rgba(255,255,255,0.08)',
+                border: 'none',
+                color: '#94a3b8',
+                cursor: 'pointer',
+                padding: '2px 5px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: 4,
+                lineHeight: 1,
+                transition: 'all 0.15s ease'
+              }}
+              title="Close Reference Demo"
+              aria-label="Close Reference Demo"
+            >
+              <X size={12} />
+            </button>
           )}
         </div>
       </div>
