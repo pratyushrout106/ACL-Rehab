@@ -3173,18 +3173,28 @@ aside {
   gap: 8px;
   white-space: nowrap;
   flex-shrink: 0;
-  background: linear-gradient(135deg, var(--accent-cyan, #00f2fe), var(--accent-indigo, #3b82f6));
-  color: #041018;
-  border: none;
+  background: linear-gradient(135deg, #0284c7, #2563eb);
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.18);
   cursor: pointer;
-  box-shadow: 0 2px 10px rgba(0, 242, 254, 0.2);
+  box-shadow: 0 3px 12px rgba(37, 99, 235, 0.35);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.register-patient-cta * {
+  color: #ffffff !important;
+}
+
+.register-patient-cta svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
 }
 
 .register-patient-cta:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(0, 242, 254, 0.35);
-  filter: brightness(1.05);
+  background: linear-gradient(135deg, #0369a1, #1d4ed8);
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.45);
+  color: #ffffff !important;
 }
 
 .patient-search-empty {

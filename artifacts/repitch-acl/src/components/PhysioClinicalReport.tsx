@@ -248,7 +248,7 @@ export function PhysioClinicalReport({
                 </button>
               </div>
               <div className="physio-stat-number">{totalReportsCount}</div>
-              <div className="physio-stat-label">Your Total Report</div>
+              <div className="physio-stat-label">Total Clinical Evaluations</div>
             </div>
 
             {/* Card 2: Injections Taken -> Exercise Sets Done */}
@@ -266,7 +266,7 @@ export function PhysioClinicalReport({
                 </button>
               </div>
               <div className="physio-stat-number">{completedSetsCount}</div>
-              <div className="physio-stat-label">Exercise Sets Completed</div>
+              <div className="physio-stat-label">Prescribed Sets Completed</div>
             </div>
 
             {/* Card 3: Surgery's Done -> Clinical Milestones Done */}
@@ -284,7 +284,7 @@ export function PhysioClinicalReport({
                 </button>
               </div>
               <div className="physio-stat-number">{milestonesDoneCount}</div>
-              <div className="physio-stat-label">Surgery Milestones Cleared</div>
+              <div className="physio-stat-label">Phase Milestones Cleared</div>
             </div>
 
           </div>
@@ -292,17 +292,17 @@ export function PhysioClinicalReport({
           {/* MIDDLE CARD: PRESCRIPTION STATISTICS & ANGLE CHART (MATCHING REFERENCE) */}
           <div className="physio-chart-card">
             <div className="physio-chart-head">
-              <h3 className="physio-chart-title">Your Prescription Statistics</h3>
+              <h3 className="physio-chart-title">Joint Kinematics & Angular Trajectory</h3>
               
               <div className="physio-chart-controls">
                 {/* Legend */}
                 <div className="physio-legend-item">
                   <span className="physio-legend-dot blue" />
-                  <span>Body Problems (Active Angle)</span>
+                  <span>Live Joint Kinematics (°)</span>
                 </div>
                 <div className="physio-legend-item">
                   <span className="physio-legend-dot green" />
-                  <span>Mental Illness (Target Hold)</span>
+                  <span>Target Prescription (°)</span>
                 </div>
 
                 {/* Timeframe Pill Dropdown */}
@@ -397,29 +397,29 @@ export function PhysioClinicalReport({
                   }}
                 >
                   <div className="tooltip-title">{activePoint.val.name.split(' ')[0]}</div>
-                  <div className="tooltip-sub">{activePoint.val.accuracy}% Form · 18</div>
+                  <div className="tooltip-sub">{activePoint.val.accuracy}% Form Accuracy</div>
                   <div className="tooltip-arrow" />
                 </div>
               </div>
 
-              {/* X-Axis labels matching reference layout */}
+              {/* X-Axis labels with orthopedic ACL exercises */}
               <div className="physio-x-axis">
-                <span>NEUROPOLY</span>
-                <span>THYROID</span>
-                <span>DIABETES</span>
-                <span>INSOMNIA</span>
-                <span className="active-x">HEPATITIS</span>
-                <span>INFLUENZA</span>
-                <span>RUBELLA</span>
-                <span>MEASLES</span>
+                <span>QUAD SET</span>
+                <span>SLR LOCK</span>
+                <span>HEEL SLIDE</span>
+                <span>MINI SQUAT</span>
+                <span className="active-x">PATELLAR MOB</span>
+                <span>WALL SIT</span>
+                <span>STEP UP</span>
+                <span>RUN CLEAR</span>
               </div>
             </div>
           </div>
 
-          {/* BOTTOM TABLE: RECENT TRANSACTIONS / EXERCISE LOG HISTORY */}
+          {/* BOTTOM TABLE: RECENT EXERCISE TELEMETRY LOGS */}
           <div className="physio-table-card">
             <div className="physio-table-head">
-              <h3 className="physio-table-title">Recent Transaction</h3>
+              <h3 className="physio-table-title">Recent Exercise Telemetry Logs</h3>
               <button 
                 className="physio-see-all-btn"
                 onClick={() => setShowAllLogs(!showAllLogs)}
@@ -432,11 +432,11 @@ export function PhysioClinicalReport({
               <table className="physio-minimal-table">
                 <thead>
                   <tr>
-                    <th>Name</th>
-                    <th>Date</th>
-                    <th>Amount</th>
-                    <th>Invoice</th>
-                    <th>Status</th>
+                    <th>Exercise Protocol</th>
+                    <th>Recorded Timestamp</th>
+                    <th>Dosage / Hold</th>
+                    <th>Protocol ID</th>
+                    <th>Kinematic Status</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -456,11 +456,11 @@ export function PhysioClinicalReport({
                         <strong>{item.repsOrHold}</strong>
                       </td>
                       <td className="physio-td-invoice">
-                        <span className="invoice-code">REC-#{1040 + i}</span>
+                        <span className="invoice-code">EX-#{1040 + i}</span>
                       </td>
                       <td className="physio-td-status">
                         <span className={`status-pill ${item.status}`}>
-                          {item.status === 'optimal' ? 'Paid / Valid' : 'Pending Review'}
+                          {item.status === 'optimal' ? 'Optimal Kinematics' : 'Review Required'}
                         </span>
                       </td>
                     </tr>
@@ -475,9 +475,9 @@ export function PhysioClinicalReport({
         {/* ================= RIGHT COLUMN ================= */}
         <div className="physio-right-col">
           
-          {/* TOP RIGHT: YOUR OVER ALL CONDITION (MULTI-SEGMENT DONUT ARC) */}
+          {/* TOP RIGHT: OVERALL JOINT RECOVERY & READINESS */}
           <div className="physio-condition-card">
-            <h3 className="physio-condition-title">Your Over all Condition</h3>
+            <h3 className="physio-condition-title">Overall Joint Recovery & Readiness</h3>
 
             <div className="physio-gauge-wrap">
               {/* SVG Multi-Colored Segmented Donut Arc */}
@@ -492,8 +492,7 @@ export function PhysioClinicalReport({
                 {/* Inner circular background with vertical hatch texture */}
                 <circle cx="160" cy="160" r="105" fill="none" stroke="#e0e7ff" strokeWidth="24" strokeDasharray="3 3" opacity="0.5" />
 
-                {/* Segment 1: Green (Neurology 15%) */}
-                {/* Arc from 135deg to 190deg */}
+                {/* Segment 1: Green (Terminal Extension 180°) */}
                 <path
                   d="M 68 180 A 110 110 0 0 1 85 95"
                   fill="none"
@@ -502,8 +501,7 @@ export function PhysioClinicalReport({
                   strokeLinecap="round"
                 />
 
-                {/* Segment 2: Violet/Purple (Rehabilitation 18%) */}
-                {/* Arc from 195deg to 260deg */}
+                {/* Segment 2: Violet/Purple (Flexion Range 115°) */}
                 <path
                   d="M 105 80 A 110 110 0 0 1 180 52"
                   fill="none"
@@ -512,8 +510,7 @@ export function PhysioClinicalReport({
                   strokeLinecap="round"
                 />
 
-                {/* Segment 3: Coral/Pink (Dermatology 18%) */}
-                {/* Arc from 270deg to 360deg */}
+                {/* Segment 3: Coral/Pink (Adherence Compliance) */}
                 <path
                   d="M 200 55 A 110 110 0 0 1 270 140"
                   fill="none"
@@ -526,28 +523,28 @@ export function PhysioClinicalReport({
                 <circle cx="160" cy="160" r="82" fill="var(--bg-card, #ffffff)" />
               </svg>
 
-              {/* Callout Speech Bubble Tags (Positioned around arcs like reference) */}
+              {/* Callout Speech Bubble Tags */}
               <div className="gauge-tag tag-green">
-                <span className="tag-name">Neurology</span>
-                <span className="tag-val">15%</span>
+                <span className="tag-name">Quad Lock</span>
+                <span className="tag-val">180°</span>
                 <div className="tag-tail bottom" />
               </div>
 
               <div className="gauge-tag tag-purple">
-                <span className="tag-name">Rehabilitation</span>
-                <span className="tag-val">18%</span>
+                <span className="tag-name">Flexion</span>
+                <span className="tag-val">115°</span>
                 <div className="tag-tail bottom" />
               </div>
 
               <div className="gauge-tag tag-pink">
-                <span className="tag-name">Dermatology</span>
-                <span className="tag-val">18%</span>
+                <span className="tag-name">Adherence</span>
+                <span className="tag-val">{patient.adherenceRate}%</span>
                 <div className="tag-tail left" />
               </div>
 
               <div className="gauge-tag tag-cyan">
-                <span className="tag-name">Cardiology</span>
-                <span className="tag-val">20%</span>
+                <span className="tag-name">Form Acc.</span>
+                <span className="tag-val">96%</span>
               </div>
 
               {/* Central Overall Percentage Display */}
@@ -564,11 +561,10 @@ export function PhysioClinicalReport({
             </div>
           </div>
 
-          {/* BOTTOM RIGHT: PRESCRIBED EXERCISE DOSES GRID (2x2 / 2x3 GRID) */}
+          {/* BOTTOM RIGHT: PRESCRIBED EXERCISE DOSES GRID */}
           <div className="physio-doses-grid">
             {telemetryData.slice(0, 4).map((exItem, index) => {
               const numStr = `0${index + 1}`;
-              const dozeStr = `(${index + 1} Doze)`;
               const displayName = exItem.name.split(' ')[0] + ' ' + (exItem.name.split(' ')[1] || '');
 
               return (
@@ -579,7 +575,7 @@ export function PhysioClinicalReport({
                   </div>
 
                   <div className="dose-main-text">
-                    {dozeStr}
+                    {exItem.repsOrHold}
                   </div>
 
                   <div className="dose-bottom-row">

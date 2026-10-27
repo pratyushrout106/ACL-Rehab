@@ -99,16 +99,16 @@ export function VideoPlaylistExplorer({
             <Film size={20} />
           </div>
           <div>
-            <h2 style={{ margin: 0, fontSize: 18 }}>{title || 'Recorded Video Playlist & Joint Telemetry'}</h2>
+            <h2 style={{ margin: 0, fontSize: 18 }}>{title || 'Recorded Biomechanical Telemetry & Video Archive'}</h2>
             <p style={{ margin: '2px 0 0', color: 'var(--text-muted)', fontSize: 13 }}>
-              {subtitle || 'Stacked exercise recordings saved locally on this device. Switch clips, review knee joint angles, save or delete.'}
+              {subtitle || 'Review recorded exercise kinematics, analyze synchronized joint angle graphs, and export clinical clips.'}
             </p>
           </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span className="tag tag-cyan" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12 }}>
-            <Layers size={13} /> {clips.length} {clips.length === 1 ? 'Clip' : 'Clips'} Stacked
+            <Layers size={13} /> {clips.length} {clips.length === 1 ? 'Recorded Session' : 'Recorded Sessions'}
           </span>
         </div>
       </div>
@@ -125,11 +125,11 @@ export function VideoPlaylistExplorer({
           }}
         >
           <Video size={42} style={{ color: 'var(--accent-cyan)', margin: '0 auto 12px', opacity: 0.7 }} />
-          <h3 style={{ margin: '0 0 6px', fontSize: 16 }}>No Recorded Clips In Playlist</h3>
+          <h3 style={{ margin: '0 0 6px', fontSize: 16 }}>No Recorded Sessions in Archive</h3>
           <p style={{ margin: '0 auto', maxWidth: 480, color: 'var(--text-muted)', fontSize: 13.5, lineHeight: 1.5 }}>
             {userRole === 'patient'
-              ? 'When you record an exercise using the camera, your movement and knee joint highlight are captured. Each new exercise recording stacks here automatically so you never lose previous clips.'
-              : 'This patient has not saved any camera exercise recordings yet. As they complete camera sessions, each video clip will stack into this playlist for clinical review.'}
+              ? 'When you record an exercise using the AI Camera Tracker, your kinematic form and joint angles are logged here. Each session is archived automatically for longitudinal clinical comparison.'
+              : 'This patient has not recorded any exercise sessions yet. Once they launch the AI Camera Tracker and complete an exercise set, synchronized kinematic recordings will appear here for clinical biomechanical review.'}
           </p>
         </div>
       ) : (
@@ -210,7 +210,7 @@ export function VideoPlaylistExplorer({
                       }}
                       title="Save video file (.webm) to your computer"
                     >
-                      <Download size={15} /> Save / Download Video
+                      <Download size={15} /> Export Video (.webm)
                     </button>
                     <button
                       type="button"
@@ -227,7 +227,7 @@ export function VideoPlaylistExplorer({
                       }}
                       title="Delete this clip from device storage"
                     >
-                      <Trash2 size={15} /> Delete Clip
+                      <Trash2 size={15} /> Delete Session
                     </button>
                   </div>
 
@@ -247,7 +247,7 @@ export function VideoPlaylistExplorer({
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                    <div className="eyebrow" style={{ margin: 0 }}>JOINT TELEMETRY ANALYSIS</div>
+                    <div className="eyebrow" style={{ margin: 0 }}>JOINT KINEMATICS & ANGLE TIMELINE</div>
                     <div className="tag" style={{ fontSize: 11, padding: '3px 9px' }}>
                       Playback: {playbackTime.toFixed(1)}s / {activeClip.duration}s
                     </div>
@@ -256,7 +256,7 @@ export function VideoPlaylistExplorer({
                   {angleSamples.length > 0 ? (
                     <div>
                       <div className="pose-readout" style={{ margin: '4px 0 12px' }}>
-                        <strong>Estimated Joint Angle</strong>
+                        <strong>Instantaneous Joint Angle</strong>
                         <span className="mono pose-angle">
                           {currentSample?.angle != null ? `${currentSample.angle}°` : '—'}
                           <small style={{ marginLeft: 8 }}>{currentSample?.measure || 'Knee Flexion'}</small>
@@ -265,7 +265,7 @@ export function VideoPlaylistExplorer({
 
                       <div className="telemetry-list" style={{ maxHeight: 130, overflowY: 'auto' }}>
                         <div className="field-title" style={{ margin: '4px 0 8px' }}>
-                          <span>Timeline angle samples</span>
+                          <span>Continuous Angle Timeline</span>
                           <span className="mono muted">{angleSamples.length} points</span>
                         </div>
                         {angleSamples.map((sample, idx) => (
@@ -283,7 +283,7 @@ export function VideoPlaylistExplorer({
                     </div>
                   ) : (
                     <div className="notice" style={{ margin: '4px 0 0', fontSize: 12.5 }}>
-                      No joint angle samples recorded for this clip.
+                      No joint kinematic telemetry recorded for this clip.
                     </div>
                   )}
                 </div>
@@ -295,9 +295,9 @@ export function VideoPlaylistExplorer({
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 2px' }}>
               <div>
-                <div className="eyebrow" style={{ margin: 0 }}>STACKED PLAYLIST</div>
+                <div className="eyebrow" style={{ margin: 0 }}>SESSION ARCHIVE</div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
-                  {clips.length} {clips.length === 1 ? 'Recording' : 'Recordings'} Stored
+                  {clips.length} {clips.length === 1 ? 'Session Available' : 'Sessions Available'}
                 </div>
               </div>
               <span className="tag" style={{ fontSize: 10.5, textTransform: 'uppercase' }}>

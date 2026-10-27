@@ -1772,7 +1772,7 @@ function App() {
             <section className="modal" role="dialog" aria-modal="true" aria-labelledby="guided-title">
               <div className="modal-head">
                 <div>
-                  <div className="eyebrow"><Sparkles size={12}/> ONE SET · ONE REP PROTOCOL</div>
+                  <div className="eyebrow"><Sparkles size={12}/> CLINICAL PROTOCOL · GUIDED REPETITION</div>
                   <h2 id="guided-title">{exercise.name}</h2>
                   <div className="muted small">{exercise.target}</div>
                 </div>
@@ -1879,7 +1879,7 @@ function App() {
                               setTimeout(() => setGuidedMood('idle'), 2500);
                             }}
                           >
-                            <RotateCcw size={15}/> Try again
+                            <RotateCcw size={15}/> Restart Set
                           </button>
                         )}
 
@@ -1897,7 +1897,7 @@ function App() {
                             }
                           }}
                         >
-                          <Clock3 size={15}/>{running ? 'Pause timer' : seconds > 0 ? 'Resume timer' : 'Start timer'}
+                          <Clock3 size={15}/>{running ? 'Pause Timer' : seconds > 0 ? 'Resume Timer' : 'Start Set Timer'}
                         </button>
 
                         <button
@@ -1912,19 +1912,19 @@ function App() {
                             speakRoo(finishMsg, soundEnabled, true);
                           }}
                         >
-                          Finish set<ChevronRight size={15}/>
+                          Complete Set<ChevronRight size={15}/>
                         </button>
                       </div>
                     </>
                   ) : (
                     <div style={{ display: 'flex', justifyContent: 'center', marginTop: 22 }}>
                       <button className="btn btn-primary" onClick={() => setStep((value) => value + 1)}>
-                        Next step<ChevronRight size={15}/>
+                        Next Step<ChevronRight size={15}/>
                       </button>
                     </div>
                   )}
                   <p className="muted small" style={{ textAlign: 'center', marginTop: 18 }}>
-                    Exactly one set of one rep. Prescribed by your physiotherapist.
+                    Prescribed clinical exercise repetition calibrated to your recovery phase.
                   </p>
                 </>
               ) : (
@@ -1936,9 +1936,9 @@ function App() {
                     showSparkles={true}
                     onClick={() => triggerMascotReaction('party', ROO_LINES.completed, soundEnabled)}
                   />
-                  <h3 style={{ fontSize: 24, margin: '14px 0 6px', fontWeight: 800 }}>Set Complete!</h3>
+                  <h3 style={{ fontSize: 24, margin: '14px 0 6px', fontWeight: 800 }}>Repetition Complete!</h3>
                   <p className="muted" style={{ margin: '0 0 20px', maxWidth: 360, marginLeft: 'auto', marginRight: 'auto' }}>
-                    Great work. Your rep has been logged to your recovery progress.
+                    Kinematic repetition verified and logged to your recovery milestones.
                   </p>
                   <div style={{ display: 'flex', justifyContent: 'center', gap: 12 }}>
                     <button
@@ -1954,10 +1954,10 @@ function App() {
                         speakRoo(startMsg, soundEnabled);
                       }}
                     >
-                      <RotateCcw size={15}/> Do another set
+                      <RotateCcw size={15}/> Repeat Exercise Set
                     </button>
                     <button className="btn btn-primary" onClick={completeSession}>
-                      <Check size={16}/> Save completion
+                      <Check size={16}/> Confirm & Save Completion
                     </button>
                   </div>
                 </div>
@@ -2348,7 +2348,7 @@ function App() {
               <div>
                 <div className="eyebrow"><Edit3 size={13}/> CLINICIAN PRESCRIPTION TOOL</div>
                 <h2 id="ex-modal-title">
-                  {exerciseModal.mode === 'add' ? 'Prescribe New Exercise' : 'Alter Prescribed Exercise'}
+                  {exerciseModal.mode === 'add' ? 'Prescribe New Exercise' : 'Edit Prescribed Exercise'}
                 </h2>
                 <div className="muted small">Patient: {patient.name}</div>
               </div>
@@ -2438,7 +2438,7 @@ function App() {
                   className="btn btn-primary" 
                   onClick={saveExerciseForm}
                 >
-                  <Check size={16}/> {exerciseModal.mode === 'add' ? 'Add to Patient Routine' : 'Save Alterations'}
+                  <Check size={16}/> {exerciseModal.mode === 'add' ? 'Prescribe Exercise to Routine' : 'Save Exercise Protocol'}
                 </button>
               </div>
             </div>
@@ -2515,7 +2515,7 @@ function App() {
                 </div>
                 <div>
                   <div className="eyebrow" style={{ color: 'var(--accent-indigo)' }}>
-                    <User size={13}/> ATHLETE CLINICAL DOSSIER
+                    <User size={13}/> PATIENT CLINICAL DOSSIER
                   </div>
                   <h2 id="profile-modal-title" style={{ fontSize: 24, margin: '2px 0 0' }}>{profileModal.patient.name}</h2>
                   <div className="muted small">{profileModal.patient.sport} · Age {profileModal.patient.age}</div>
@@ -2655,7 +2655,7 @@ function App() {
                   handleDeletePatient(profileModal.patient!.id);
                 }}
               >
-                <Trash2 size={14}/> Delete Patient
+                <Trash2 size={14}/> Discharge Patient Profile
               </button>
 
               <div style={{ display: 'flex', gap: 10 }}>
@@ -2668,7 +2668,7 @@ function App() {
                     switchToPatientPortal(profileModal.patient!.id);
                   }}
                 >
-                  <ExternalLink size={14}/> Open in Patient Portal
+                  <ExternalLink size={14}/> Open Patient Experience
                 </button>
               </div>
             </div>
@@ -2685,8 +2685,8 @@ function App() {
                 <div className="eyebrow" style={{ color: 'var(--accent-emerald)' }}>
                   <Users size={13}/> CLINICAL INTAKE TOOL
                 </div>
-                <h2 id="add-pt-title">Register New Athlete / Patient</h2>
-                <div className="muted small">Add a new patient profile into your active rehabilitation caseload.</div>
+                <h2 id="add-pt-title">Register New Patient</h2>
+                <div className="muted small">Initialize a personalized patient profile with targeted ACL kinematic protocols and recovery tracking.</div>
               </div>
               <button className="icon-button" onClick={() => setAddPatientModal(false)}>
                 <X size={18}/>
@@ -2695,7 +2695,7 @@ function App() {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
-                <label className="field-title">Athlete Full Name *</label>
+                <label className="field-title">Patient / Athlete Full Name *</label>
                 <input 
                   className="form-input" 
                   value={newPatientName} 
@@ -2707,7 +2707,7 @@ function App() {
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div>
-                  <label className="field-title">Sport & Position</label>
+                  <label className="field-title">Sport / Activity Level</label>
                   <input 
                     className="form-input" 
                     value={newPatientSport} 
@@ -2820,7 +2820,7 @@ function App() {
                   Cancel
                 </button>
                 <button className="btn btn-primary" onClick={handleCreatePatient}>
-                  <Check size={16}/> Register Athlete
+                  <Check size={16}/> Register Patient & Initialize Protocol
                 </button>
               </div>
             </div>
@@ -2939,7 +2939,7 @@ function PatientView(props: {
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
             <Stethoscope size={20} color="var(--accent-indigo)" style={{ flexShrink: 0, marginTop: 2 }}/>
             <div>
-              <div className="eyebrow" style={{ color: 'var(--accent-indigo)' }}>PHYSIOTHERAPIST NOTE FOR YOU</div>
+              <div className="eyebrow" style={{ color: 'var(--accent-indigo)' }}>CLINICAL REHABILITATION DIRECTIVE</div>
               <p style={{ margin: '4px 0 0', color: 'var(--text-primary)', fontSize: 13.5, lineHeight: 1.5, fontWeight: 500 }}>
                 "{patient.clinicianNotes}"
               </p>
@@ -2955,11 +2955,11 @@ function PatientView(props: {
           <section className="exercise-section">
             <div className="section-head">
               <div>
-                <h2>Prescribed Daily Routine ({patient.prescribedExercises.length} Exercises)</h2>
-                <p>Prescribed specifically for your recovery phase by your physiotherapist.</p>
+                <h2>Today's Prescribed Routine ({patient.prescribedExercises.length} Exercises)</h2>
+                <p>Targeted rehabilitation exercises customized by your physiotherapist for your current recovery phase.</p>
               </div>
               <span className="tag">
-                <CheckCircle2 size={13}/> {patient.sessions.length} logged
+                <CheckCircle2 size={13}/> {patient.sessions.length} completed
               </span>
             </div>
             <div className="exercise-grid">
@@ -2983,10 +2983,10 @@ function PatientView(props: {
                         <Play size={13}/> Start Guided Set
                       </button>
                       <button className="btn btn-quiet" onClick={() => void startCamera(item)}>
-                        <Camera size={13}/> AI Camera
+                        <Camera size={13}/> AI Camera Tracker
                       </button>
-                      <button className="btn btn-quiet" onClick={() => openDemo(item)} title="Watch animated character demo">
-                        <Sparkles size={13} style={{ color: 'var(--accent-cyan)' }}/> Character Demo
+                      <button className="btn btn-quiet" onClick={() => openDemo(item)} title="Watch animated biomechanical demonstration">
+                        <Sparkles size={13} style={{ color: 'var(--accent-cyan)' }}/> Biomechanical Demo
                       </button>
                     </div>
                   </div>
@@ -2999,15 +2999,15 @@ function PatientView(props: {
           <section className="panel checkin">
             <div className="section-head">
               <div>
-                <h2>Daily Symptom Check-in</h2>
-                <p>Tracking your pain and effusion helps your physiotherapist calibrate your exercise load.</p>
+                <h2>Daily Recovery & Symptom Check-In</h2>
+                <p>Daily pain and joint effusion logs guide your clinician in safely progressing your exercise loading.</p>
               </div>
               <span className="tag tag-cyan">TODAY</span>
             </div>
 
             {/* Pain Slider */}
             <div className="field-title">
-              <span>Reported Pain Level</span>
+              <span>Resting Knee Pain Level</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span className="small muted">{painLabel}</span>
                 <span className="mono" style={{ color: painColor, fontWeight: 800, fontSize: 15 }}>
@@ -3029,14 +3029,14 @@ function PatientView(props: {
               />
             </div>
             <div className="muted small" style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
-              <span>1 · No pain</span>
-              <span>5 · Noticeable</span>
-              <span>10 · Severe</span>
+              <span>0–1 · Minimal / None</span>
+              <span>4–5 · Moderate Discomfort</span>
+              <span>9–10 · Severe / Intolerable</span>
             </div>
 
             {/* Swelling Choice */}
             <div className="field-title">
-              <span>Joint Effusion / Swelling</span>
+              <span>Joint Effusion & Swelling</span>
             </div>
             <div className="choice-row">
               {(['Mild', 'Moderate', 'Severe'] as Swelling[]).map((item) => (
@@ -3054,7 +3054,7 @@ function PatientView(props: {
 
             {/* Sleep Choice */}
             <div className="field-title">
-              <span>Rest & Sleep Quality</span>
+              <span>Sleep & Tissue Recovery Quality</span>
             </div>
             <div className="sleep-choice">
               {['Restful', 'Good', 'Fair', 'Rough'].map((item) => (
@@ -3070,9 +3070,9 @@ function PatientView(props: {
 
             {/* Save Row */}
             <div className="save-row">
-              <span className="muted small">🔒 Stored locally in your athlete profile.</span>
+              <span className="muted small">🔒 Securely stored in your clinical rehabilitation profile.</span>
               <button className="btn btn-primary" onClick={saveCheckin} data-testid="button-save-checkin">
-                <Check size={15}/>{saved ? 'Saved Successfully' : 'Save Today’s Check-in'}
+                <Check size={15}/>{saved ? 'Recovery Log Saved' : 'Log Today’s Recovery Check-In'}
               </button>
             </div>
           </section>
@@ -3082,8 +3082,8 @@ function PatientView(props: {
         <aside>
           <div className="section-head">
             <div>
-              <h2>Recovery Companion</h2>
-              <p>Mascot coaching, form motivation & activity.</p>
+              <h2>Clinical AI Companion</h2>
+              <p>Real-time form motivation, cue reminders, and recovery encouragement.</p>
             </div>
             <span className="tag tag-cyan" style={{ fontSize: 9.5, padding: '2px 7px' }}>
               <Sparkles size={11}/> ACTIVE
@@ -3094,9 +3094,9 @@ function PatientView(props: {
           <section className="panel roo-card">
             <div>
               <div className="eyebrow" style={{ color: 'var(--accent-emerald)', marginBottom: 4 }}>
-                <Sparkles size={12}/> AI PHYSIO MASCOT
+                <Sparkles size={12}/> BIO-MECHANIC COACH & MASCOT
               </div>
-              <h3 style={{ margin: '0 0 6px', fontSize: 21, fontWeight: 800, letterSpacing: '-0.02em' }}>Roo is with you.</h3>
+              <h3 style={{ margin: '0 0 6px', fontSize: 21, fontWeight: 800, letterSpacing: '-0.02em' }}>Roo · Bio-Mechanic Mascot</h3>
               <p>
                 {pain >= 6 || swelling === 'Severe'
                   ? 'Your joint requires extra rest today. Consult your physiotherapist before adding loading.'
@@ -3123,7 +3123,7 @@ function PatientView(props: {
                   title="Hear Roo's voice"
                 >
                   <Volume2 size={13} style={{ color: 'var(--accent-emerald)' }} />
-                  <span>Hear Roo cheer!</span>
+                  <span>Listen to Roo's Voice Coaching</span>
                 </button>
               </div>
             </div>
@@ -3150,15 +3150,15 @@ function PatientView(props: {
           {/* Clinical safety disclaimer */}
           <div className="notice" style={{ marginTop: 16 }}>
             <ShieldAlert size={16} style={{ color: 'var(--accent-amber)', flexShrink: 0 }}/>
-            <span>Stop immediately if any movement causes catching or sharp joint line pain.</span>
+            <span>Clinical Precaution: Discontinue movement immediately if you experience joint locking, catching, or acute graft pain.</span>
           </div>
 
           {/* Recent progress list */}
           <section className="panel history">
             <div className="section-head">
               <div>
-                <h2>Recent Sets</h2>
-                <p>Saved on this device</p>
+                <h2>Recent Completed Sessions</h2>
+                <p>Synchronized session logs</p>
               </div>
               <ArrowRight size={16} color="var(--text-muted)"/>
             </div>
@@ -3176,7 +3176,7 @@ function PatientView(props: {
               ))
             ) : (
               <div className="empty" style={{ padding: 18, fontSize: 12 }}>
-                Completed guided sets will appear here.
+                Completed exercise sessions will be logged here with timestamps and rep counts.
               </div>
             )}
           </section>
@@ -3190,8 +3190,8 @@ function PatientView(props: {
         setSelectedClipId={setSelectedClipId}
         downloadClip={downloadClip}
         deleteClip={deleteClip}
-        title="Recorded Session Video Playlist"
-        subtitle="On-device recorded exercise clips stacked one after another with real-time knee joint telemetry. Save or delete any clip."
+        title="Recorded Biomechanical Telemetry & Video Archive"
+        subtitle="Review recorded exercise kinematics, analyze synchronized joint angle graphs, and export clinical clips."
         userRole="patient"
       />
     </>
@@ -3759,8 +3759,8 @@ function ClinicianView(props: {
         setSelectedClipId={setSelectedClipId}
         downloadClip={downloadClip}
         deleteClip={deleteClip}
-        title="Patient Session Video & Telemetry Playlist"
-        subtitle="On-device recorded exercise clips stacked one after another with synchronized 2D joint angle telemetry. Physio and patient can save or delete any clip."
+        title="Patient Biomechanical Video Archive & Joint Telemetry"
+        subtitle="Recorded exercise sessions with synchronized 2D knee angle kinematics. Review movement trajectories, evaluate form adherence, or export clinical clips."
         userRole="clinician"
       />
     </>
