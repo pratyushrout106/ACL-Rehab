@@ -1271,7 +1271,7 @@ function App() {
     }));
     setModal(null); 
     setRunning(false); 
-    setToast('Session saved! +15 RePitch XP gained.');
+    setToast('Session saved successfully.');
 
     // Duolingo Roo pops up between exercises to motivate patient to do the next exercise
     const curIdx = patient.routine.findIndex((e) => e.id === exercise.id);
@@ -2880,25 +2880,55 @@ function PatientView(props: {
 
   return (
     <>
-      {/* Hero Welcome */}
+      {/* Hero Welcome with Recovery Day and Rehab Streak in Top Right */}
       <div className="hero-row">
         <div>
           <div className="eyebrow">
             <Calendar size={13}/>
-            PHASE {patient.currentPhase} REHABILITATION · DAY {patient.currentDay} OF {patient.totalDays}
+            PHASE {patient.currentPhase} REHABILITATION · {patient.graft}
           </div>
           <h1>{greeting}, {patient.name.split(' ')[0]}.</h1>
           <div className="muted">
-            {patient.sport} · {patient.graft}
+            {patient.sport}
           </div>
         </div>
-        <div className="hero-badges">
-          <span className="tag tag-cyan">
-            <Activity size={12}/> {patient.adherenceRate}% ADHERENCE
-          </span>
-          <span className="tag">
-            <HeartPulse size={12}/> PHASE {patient.currentPhase} ACTIVE
-          </span>
+
+        {/* Top-Right Stats: Recovery Day & Rehab Streak */}
+        <div className="hero-stats-group">
+          <div className="panel hero-stat">
+            <div className="stat-header">
+              <span className="stat-label">Recovery Day</span>
+              <div className="stat-icon" style={{ color: 'var(--accent-cyan)', background: 'var(--accent-cyan-light)' }}>
+                <Activity size={17}/>
+              </div>
+            </div>
+            <div>
+              <div className="stat-value" style={{ margin: '8px 0 3px', fontSize: 24, lineHeight: 1.1 }}>
+                {patient.currentDay}<span className="muted" style={{ fontSize: 13, fontWeight: 500 }}> / {patient.totalDays}</span>
+              </div>
+              <div className="stat-detail">
+                <span className="tag tag-cyan" style={{ fontSize: 9.5, padding: '2px 7px' }}>Phase {patient.currentPhase}</span>
+                <span>Week {Math.ceil(patient.currentDay / 7)}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="panel hero-stat">
+            <div className="stat-header">
+              <span className="stat-label">Rehab Streak</span>
+              <div className="stat-icon" style={{ color: 'var(--accent-amber)', background: 'var(--accent-amber-light)' }}>
+                <Flame size={17}/>
+              </div>
+            </div>
+            <div>
+              <div className="stat-value" style={{ margin: '8px 0 3px', fontSize: 24, lineHeight: 1.1 }}>
+                {patient.streakDays} <span style={{ fontSize: 13, fontWeight: 600 }}>Days</span>
+              </div>
+              <div className="stat-detail">
+                <span>🔥 Consecutive check-ins</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -2916,73 +2946,6 @@ function PatientView(props: {
           </div>
         </div>
       )}
-
-      {/* Modern 4 KPI Cards */}
-      <div className="stats">
-        <div className="panel stat">
-          <div className="stat-header">
-            <span className="stat-label">Recovery Day</span>
-            <div className="stat-icon"><Activity size={18}/></div>
-          </div>
-          <div>
-            <div className="stat-value">
-              {patient.currentDay}<span className="muted small"> / {patient.totalDays}</span>
-            </div>
-            <div className="stat-detail">
-              <span className="tag tag-cyan" style={{ fontSize: 10, padding: '2px 7px' }}>Phase {patient.currentPhase}</span>
-              <span>Week {Math.ceil(patient.currentDay / 7)}</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="panel stat">
-          <div className="stat-header">
-            <span className="stat-label">Rehab Streak</span>
-            <div className="stat-icon" style={{ color: 'var(--accent-amber)', background: 'var(--accent-amber-light)' }}>
-              <Flame size={18}/>
-            </div>
-          </div>
-          <div>
-            <div className="stat-value">
-              {patient.streakDays} <span style={{ fontSize: 16, fontWeight: 600 }}>Days</span>
-            </div>
-            <div className="stat-detail">
-              <span>🔥 Consecutive check-ins</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="panel stat">
-          <div className="stat-header">
-            <span className="stat-label">RePitch XP</span>
-            <div className="stat-icon" style={{ color: 'var(--accent-emerald)', background: 'var(--accent-emerald-light)' }}>
-              <Trophy size={18}/>
-            </div>
-          </div>
-          <div>
-            <div className="stat-value">{patient.repitchPoints} <span className="small muted">XP</span></div>
-            <div className="stat-detail">
-              <Award size={13} color="var(--accent-emerald)"/>
-              <span>Level {Math.floor(patient.repitchPoints / 250) + 1} Rebounder</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="panel stat">
-          <div className="stat-header">
-            <span className="stat-label">Adherence</span>
-            <div className="stat-icon" style={{ color: 'var(--accent-indigo)', background: 'var(--accent-indigo-light)' }}>
-              <CheckCircle2 size={18}/>
-            </div>
-          </div>
-          <div>
-            <div className="stat-value">{patient.adherenceRate}%</div>
-            <div className="stat-detail">
-              <span>{patient.sessions.length} sets completed</span>
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* Main Grid */}
       <div className="content-grid">
@@ -3116,13 +3079,23 @@ function PatientView(props: {
 
         {/* Sidebar */}
         <aside>
+          <div className="section-head">
+            <div>
+              <h2>Recovery Companion</h2>
+              <p>Mascot coaching, form motivation & activity.</p>
+            </div>
+            <span className="tag tag-cyan" style={{ fontSize: 9.5, padding: '2px 7px' }}>
+              <Sparkles size={11}/> ACTIVE
+            </span>
+          </div>
+
           {/* Recovery Companion Roo Card */}
           <section className="panel roo-card">
             <div>
-              <div className="eyebrow" style={{ color: 'var(--accent-emerald)' }}>
-                <Sparkles size={13}/> RECOVERY COMPANION
+              <div className="eyebrow" style={{ color: 'var(--accent-emerald)', marginBottom: 4 }}>
+                <Sparkles size={12}/> AI PHYSIO MASCOT
               </div>
-              <h2>Roo is with you.</h2>
+              <h3 style={{ margin: '0 0 6px', fontSize: 21, fontWeight: 800, letterSpacing: '-0.02em' }}>Roo is with you.</h3>
               <p>
                 {pain >= 6 || swelling === 'Severe'
                   ? 'Your joint requires extra rest today. Consult your physiotherapist before adding loading.'
