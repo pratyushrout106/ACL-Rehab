@@ -24,6 +24,7 @@ import {
   Play, 
   Plus,
   RotateCcw,
+  Search,
   ShieldAlert, 
   Sparkles, 
   Stethoscope, 
@@ -1647,14 +1648,14 @@ function App() {
               onClick={() => setRole('patient')} 
               data-testid="button-view-patient"
             >
-              <HeartPulse size={15}/> Patient / Athlete
+              <HeartPulse size={15}/> Patient Portal
             </button>
             <button 
               className={role === 'clinician' ? 'active' : ''} 
               onClick={() => setRole('clinician')} 
               data-testid="button-view-clinician"
             >
-              <Stethoscope size={15}/> Physiotherapist
+              <Stethoscope size={15}/> Physiotherapist Dashboard
             </button>
           </div>
 
@@ -3373,12 +3374,25 @@ function ClinicianView(props: {
     updatePatientPhase, openAddPatient, deletePatient, openProfile, switchToPatientPortal
   } = props;
 
+  const [patientSearch, setPatientSearch] = useState('');
   const [notesEdit, setNotesEdit] = useState(patient.clinicianNotes);
   const [editingNotes, setEditingNotes] = useState(false);
 
   useEffect(() => {
     setNotesEdit(patient.clinicianNotes);
   }, [patient]);
+
+  const filteredPatients = patients.filter((p) => {
+    if (!patientSearch.trim()) return true;
+    const q = patientSearch.toLowerCase().trim();
+    return (
+      p.name.toLowerCase().includes(q) ||
+      p.sport.toLowerCase().includes(q) ||
+      p.graft.toLowerCase().includes(q) ||
+      `phase ${p.currentPhase}`.toLowerCase().includes(q) ||
+      (p.affectedLeg && `${p.affectedLeg} leg`.toLowerCase().includes(q))
+    );
+  });
 
   const summary = `Patient ${patient.name} (${patient.sport}) is on Day ${patient.currentDay} of Phase ${patient.currentPhase}. Total check-ins recorded: ${patient.checkins.length}. Latest pain: ${latest?.pain ?? 'N/A'}/10 with ${latest?.swelling?.toLowerCase() ?? 'no'} joint effusion. Adherence score is ${patient.adherenceRate}%.`;
 
@@ -3388,70 +3402,126 @@ function ClinicianView(props: {
       <div className="hero-row">
         <div>
           <div className="eyebrow">
-            <Stethoscope size={13}/> CLINICIAN WORKSPACE · ACTIVE PATIENT MANAGEMENT
+            <Stethoscope size={13}/> CLINICAL WORKSPACE · CASELOAD DIRECTORY
           </div>
           <h1>Physiotherapist Clinical Dashboard</h1>
           <div className="muted">
-            Manage multi-athlete recovery journeys, clear rehabilitation phases, and inspect on-device telemetry.
+            Monitor patient recovery trajectories, evaluate joint biomechanics, and clear phase transitions.
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <button className="btn btn-quiet" onClick={openAddPatient}>
-            <Plus size={15}/> Add New Patient
-          </button>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
           <button className="btn btn-primary" onClick={exportReport} data-testid="button-export-report">
-            <Download size={15}/> Export Patient CSV Report
+            <Download size={15}/> Export Clinical Report (CSV)
           </button>
         </div>
       </div>
 
       {/* Patient Switcher Panel */}
       <div className="panel patient-selector-panel">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+        <div className="patient-selector-top">
           <div>
-            <div className="eyebrow" style={{ color: 'var(--accent-indigo)' }}>
-              <Users size={13}/> SELECT ACTIVE PATIENT ({patients.length} ATHLETES IN CASELOAD)
+            <div className="eyebrow" style={{ color: 'var(--accent-indigo)', marginBottom: 2 }}>
+              <Users size={13}/> CASELOAD DIRECTORY
             </div>
+            <h2 style={{ fontSize: 18, fontWeight: 800, margin: '2px 0 0', letterSpacing: '-0.01em' }}>
+              Select Active Patient
+            </h2>
             <p className="muted small" style={{ margin: '4px 0 0' }}>
-              Select any athlete below to inspect joint telemetry, clear rehabilitation phases, or alter exercises.
+              Select an athlete to review kinematics, update exercise prescriptions, or clear recovery phases.
             </p>
           </div>
-          <button className="btn btn-primary" onClick={openAddPatient} style={{ padding: '7px 14px', fontSize: 12.5 }}>
-            <Plus size={14}/> Register New Patient
+          <div className="patient-caseload-badge">
+            <span className="patient-caseload-dot" />
+            <span>{filteredPatients.length} of {patients.length} Registered Patients</span>
+          </div>
+        </div>
+
+        {/* Minimalistic Search Bar & Register CTA Row */}
+        <div className="patient-search-action-bar">
+          <div className="patient-search-wrapper">
+            <Search size={15} className="patient-search-icon" />
+            <input 
+              type="text"
+              className="patient-search-input"
+              placeholder="Search patients by name, sport, graft, or phase..."
+              value={patientSearch}
+              onChange={(e) => setPatientSearch(e.target.value)}
+              aria-label="Search patients in caseload"
+            />
+            {patientSearch && (
+              <button
+                type="button"
+                className="patient-search-clear"
+                onClick={() => setPatientSearch('')}
+                title="Clear search filter"
+                aria-label="Clear search filter"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+
+          <button 
+            type="button"
+            className="register-patient-cta" 
+            onClick={openAddPatient} 
+            title="Register a new athlete or patient into clinical caseload"
+          >
+            <Plus size={15} strokeWidth={2.4}/> Register New Patient
           </button>
         </div>
 
-        <div className="patient-chips" style={{ marginTop: 14 }}>
-          {patients.map((p) => {
-            const isSelected = p.id === selectedPatientId;
-            return (
-              <div 
-                key={p.id}
-                className={`patient-chip ${isSelected ? 'active' : ''}`}
-                onClick={() => setSelectedPatientId(p.id)}
-                style={{ display: 'flex', alignItems: 'center', gap: 10 }}
-              >
-                <div className="patient-avatar">{p.avatar}</div>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: 13 }}>{p.name}</div>
-                  <div className="muted small" style={{ fontSize: 11 }}>Phase {p.currentPhase} · {p.sport.split(' ')[0]}</div>
-                </div>
-                <button 
-                  type="button" 
-                  className="icon-button" 
-                  style={{ width: 26, height: 26, marginLeft: 4, borderRadius: 6, opacity: 0.8 }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    openProfile(p);
-                  }}
-                  title={`View ${p.name}'s Profile Dossier`}
+        {/* Filtered Patient Chips */}
+        {filteredPatients.length > 0 ? (
+          <div className="patient-chips">
+            {filteredPatients.map((p) => {
+              const isSelected = p.id === selectedPatientId;
+              return (
+                <div 
+                  key={p.id}
+                  className={`patient-chip ${isSelected ? 'active' : ''}`}
+                  onClick={() => setSelectedPatientId(p.id)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10 }}
+                  role="button"
+                  tabIndex={0}
                 >
-                  <User size={12}/>
-                </button>
-              </div>
-            );
-          })}
-        </div>
+                  <div className="patient-avatar">{p.avatar}</div>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 13 }}>{p.name}</div>
+                    <div className="muted small" style={{ fontSize: 11 }}>Phase {p.currentPhase} · {p.sport.split(' ')[0]}</div>
+                  </div>
+                  <button 
+                    type="button" 
+                    className="icon-button" 
+                    style={{ width: 26, height: 26, marginLeft: 4, borderRadius: 6, opacity: 0.8 }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openProfile(p);
+                    }}
+                    title={`View ${p.name}'s Clinical Profile Dossier`}
+                  >
+                    <User size={12}/>
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="patient-search-empty">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-secondary)' }}>
+              <Search size={16} />
+              <span style={{ fontSize: 13 }}>No patients found matching "<strong>{patientSearch}</strong>"</span>
+            </div>
+            <button 
+              type="button"
+              className="btn btn-quiet" 
+              style={{ padding: '4px 12px', fontSize: 11.5 }}
+              onClick={() => setPatientSearch('')}
+            >
+              Clear Search Filter
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Selected Patient Banner */}
@@ -3464,31 +3534,31 @@ function ClinicianView(props: {
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <h2 style={{ fontSize: 26, margin: 0 }}>{patient.name}</h2>
-                <span className="tag tag-cyan" style={{ fontSize: 11 }}>Phase {patient.currentPhase} Active</span>
+                <span className="tag tag-cyan" style={{ fontSize: 11 }}>Phase {patient.currentPhase} · Active</span>
               </div>
               <div className="muted small" style={{ marginTop: 6, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-                <span>Age: <strong>{patient.age}</strong></span>
+                <span>Age: <strong>{patient.age} yrs</strong></span>
                 <span>Sport: <strong>{patient.sport}</strong></span>
                 <span>Graft: <strong>{patient.graft}</strong></span>
-                <span>Operative: <strong style={{ color: patient.legHighlightColor || 'var(--accent-cyan)' }}>{patient.affectedLeg?.toUpperCase() || 'RIGHT'} LEG</strong></span>
-                <span>Surgery: <strong>{patient.surgeryDate}</strong></span>
+                <span>Operative Limb: <strong style={{ color: patient.legHighlightColor || 'var(--accent-cyan)' }}>{patient.affectedLeg?.toUpperCase() || 'RIGHT'} LEG</strong></span>
+                <span>Surgery Date: <strong>{patient.surgeryDate}</strong></span>
               </div>
             </div>
           </div>
 
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
             <button className="btn btn-quiet" onClick={() => openProfile(patient)}>
-              <User size={14}/> View Full Profile
+              <User size={14}/> Clinical Dossier
             </button>
             <button className="btn btn-quiet" onClick={() => switchToPatientPortal(patient.id)}>
-              <ExternalLink size={14}/> Open in Patient View
+              <ExternalLink size={14}/> View Patient Experience
             </button>
             <button 
               className="btn btn-danger" 
               onClick={() => deletePatient(patient.id)}
-              title="Delete / Discharge athlete from care"
+              title="Discharge athlete from active caseload"
             >
-              <Trash2 size={14}/> Delete
+              <Trash2 size={14}/> Discharge
             </button>
           </div>
         </div>
@@ -3497,9 +3567,9 @@ function ClinicianView(props: {
         <div style={{ marginTop: 20, paddingTop: 18, borderTop: '1px solid var(--border-light)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
             <div className="eyebrow" style={{ color: 'var(--accent-emerald)', margin: 0 }}>
-              <ShieldAlert size={12}/> CLINICIAN PHASE CLEARANCE (CLICK TO CHANGE OR PROMOTE PHASE)
+              <ShieldAlert size={12}/> REHABILITATION PHASE CLEARANCE & PROGRESSION
             </div>
-            <span className="small muted">Evidence-based recovery progression · 1-click update</span>
+            <span className="small muted">Evidence-based progression criteria · Click to clear phase transition</span>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 10 }}>
@@ -3577,11 +3647,11 @@ function ClinicianView(props: {
         <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--border-light)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
             <span className="eyebrow" style={{ color: 'var(--accent-indigo)' }}>
-              <Edit3 size={12}/> CLINICIAN PRESCRIPTION NOTES (VISIBLE TO PATIENT)
+              <Edit3 size={12}/> CLINICAL REHABILITATION DIRECTIVES · SHARED WITH PATIENT
             </span>
             {!editingNotes ? (
               <button className="btn btn-quiet" style={{ padding: '4px 10px', fontSize: 11 }} onClick={() => setEditingNotes(true)}>
-                <Edit3 size={12}/> Edit Note
+                <Edit3 size={12}/> Edit Directives
               </button>
             ) : (
               <button 
@@ -3592,7 +3662,7 @@ function ClinicianView(props: {
                   setEditingNotes(false);
                 }}
               >
-                <Check size={12}/> Save Note
+                <Check size={12}/> Save Directives
               </button>
             )}
           </div>
@@ -3602,6 +3672,7 @@ function ClinicianView(props: {
               className="form-input" 
               value={notesEdit} 
               onChange={(e) => setNotesEdit(e.target.value)}
+              placeholder="Enter clinical rehabilitation directives for this athlete..."
             />
           ) : (
             <p className="muted" style={{ margin: 0, fontSize: 13, lineHeight: 1.5 }}>
@@ -3616,17 +3687,17 @@ function ClinicianView(props: {
         <div className="exercise-mgmt-head">
           <div>
             <div className="eyebrow" style={{ color: 'var(--accent-cyan)' }}>
-              <Dumbbell size={13}/> ALTER & PRESCRIBE PATIENT EXERCISES
+              <Dumbbell size={13}/> REHABILITATION PROTOCOL MANAGEMENT
             </div>
             <h2 style={{ fontSize: 20, margin: '4px 0 0' }}>
-              Active Exercise Routine for {patient.name}
+              Prescribed Protocol for {patient.name}
             </h2>
             <p className="muted small" style={{ margin: '2px 0 0' }}>
-              Add new exercises, modify joint angle targets, hold duration, or safety cues.
+              Customize joint kinematic targets, hold durations, and safety cues for this athlete.
             </p>
           </div>
           <button className="btn btn-primary" onClick={openAddExercise}>
-            <Plus size={15}/> Prescribe New Exercise
+            <Plus size={15}/> Add Prescribed Exercise
           </button>
         </div>
 
@@ -3643,26 +3714,26 @@ function ClinicianView(props: {
                     {ex.category && <span className="tag" style={{ fontSize: 9.5, padding: '2px 6px' }}>{ex.category}</span>}
                   </div>
                   <div className="mono small" style={{ color: 'var(--accent-cyan)', marginTop: 2 }}>
-                    Target: {ex.target} · {ex.seconds}s duration
+                    Target: {ex.target} · {ex.seconds}s continuous hold
                   </div>
                   <div className="muted small" style={{ marginTop: 2 }}>
-                    Warning: {ex.warning}
+                    Safety Cue: {ex.warning}
                   </div>
                 </div>
               </div>
 
               <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn btn-quiet" style={{ padding: '6px 12px', fontSize: 11.5 }} onClick={() => openDemo(ex)} title="Preview animated character demo">
-                  <Sparkles size={13} style={{ color: 'var(--accent-cyan)' }}/> Demo
+                <button className="btn btn-quiet" style={{ padding: '6px 12px', fontSize: 11.5 }} onClick={() => openDemo(ex)} title="Preview biomechanical character demo">
+                  <Sparkles size={13} style={{ color: 'var(--accent-cyan)' }}/> Preview Demo
                 </button>
                 <button className="btn btn-quiet" style={{ padding: '6px 12px', fontSize: 11.5 }} onClick={() => openEditExercise(ex)}>
-                  <Edit3 size={13}/> Alter / Edit
+                  <Edit3 size={13}/> Edit Protocol
                 </button>
                 <button 
                   className="btn btn-danger" 
                   style={{ padding: '6px 10px', fontSize: 11.5 }} 
                   onClick={() => deleteExercise(ex.id)}
-                  title="Remove exercise"
+                  title="Remove exercise from prescription"
                 >
                   <Trash2 size={13}/>
                 </button>

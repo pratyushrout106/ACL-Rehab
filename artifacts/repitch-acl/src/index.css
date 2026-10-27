@@ -3047,3 +3047,173 @@ aside {
   60% { transform: translateX(-50%) scale(1.06) translateY(2px); opacity: 1; }
   100% { transform: translateX(-50%) scale(1) translateY(0); opacity: 1; }
 }
+
+/* ==========================================================================
+   MINIMALISTIC PATIENT SEARCH & REGISTER CTA (PHYSIO VIEW)
+   ========================================================================== */
+.patient-selector-panel {
+  padding: 22px 24px;
+  margin-bottom: 24px;
+}
+
+.patient-selector-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.patient-caseload-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-light);
+  border-radius: 9999px;
+  padding: 4px 12px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  letter-spacing: 0.02em;
+}
+
+.patient-caseload-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent-emerald, #10b981);
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+}
+
+.patient-search-action-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  width: 100%;
+}
+
+.patient-search-wrapper {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.patient-search-input {
+  width: 100%;
+  height: 42px;
+  padding: 0 38px 0 38px;
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text-primary);
+  outline: none;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.patient-search-input:focus {
+  border-color: var(--accent-cyan);
+  background: var(--bg-card);
+  box-shadow: 0 0 0 3px var(--accent-cyan-glow, rgba(0, 242, 254, 0.15));
+}
+
+.patient-search-input::placeholder {
+  color: var(--text-tertiary, #94a3b8);
+  font-weight: 450;
+}
+
+.patient-search-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--text-tertiary, #94a3b8);
+  pointer-events: none;
+  transition: color 0.2s ease;
+}
+
+.patient-search-input:focus ~ .patient-search-icon,
+.patient-search-wrapper:focus-within .patient-search-icon {
+  color: var(--accent-cyan);
+}
+
+.patient-search-clear {
+  position: absolute;
+  right: 10px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(148, 163, 184, 0.2);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.patient-search-clear:hover {
+  background: rgba(148, 163, 184, 0.35);
+  color: var(--text-primary);
+}
+
+.register-patient-cta {
+  height: 42px;
+  padding: 0 18px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, var(--accent-cyan, #00f2fe), var(--accent-indigo, #3b82f6));
+  color: #041018;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0, 242, 254, 0.2);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.register-patient-cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(0, 242, 254, 0.35);
+  filter: brightness(1.05);
+}
+
+.patient-search-empty {
+  padding: 24px 16px;
+  text-align: center;
+  background: var(--bg-card-subtle);
+  border: 1px dashed var(--border-light);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.patient-search-empty p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 640px) {
+  .patient-search-action-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .register-patient-cta {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
