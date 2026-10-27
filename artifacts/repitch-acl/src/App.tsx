@@ -3079,13 +3079,23 @@ function PatientView(props: {
 
         {/* Sidebar */}
         <aside>
+          <div className="section-head">
+            <div>
+              <h2>Recovery Companion</h2>
+              <p>Mascot coaching, form motivation & activity.</p>
+            </div>
+            <span className="tag tag-cyan" style={{ fontSize: 9.5, padding: '2px 7px' }}>
+              <Sparkles size={11}/> ACTIVE
+            </span>
+          </div>
+
           {/* Recovery Companion Roo Card */}
           <section className="panel roo-card">
             <div>
-              <div className="eyebrow" style={{ color: 'var(--accent-emerald)' }}>
-                <Sparkles size={13}/> RECOVERY COMPANION
+              <div className="eyebrow" style={{ color: 'var(--accent-emerald)', marginBottom: 4 }}>
+                <Sparkles size={12}/> AI PHYSIO MASCOT
               </div>
-              <h2>Roo is with you.</h2>
+              <h3 style={{ margin: '0 0 6px', fontSize: 21, fontWeight: 800, letterSpacing: '-0.02em' }}>Roo is with you.</h3>
               <p>
                 {pain >= 6 || swelling === 'Severe'
                   ? 'Your joint requires extra rest today. Consult your physiotherapist before adding loading.'
