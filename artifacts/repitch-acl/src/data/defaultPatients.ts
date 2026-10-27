@@ -1,4 +1,4 @@
-export type Swelling = 'Mild' | 'Moderate' | 'Severe';
+export type Swelling = 'None' | 'Mild' | 'Moderate' | 'Severe';
 export type Entry = { pain: number; swelling: Swelling; sleep: string; date: string };
 export type Session = { id: string; exercise: string; date: string; time: string; completed: boolean };
 
@@ -31,6 +31,7 @@ export type Patient = {
   adherenceRate: number;
   repitchPoints: number;
   clinicianNotes: string;
+  patientNotes?: string;
   checkins: Entry[];
   sessions: Session[];
   prescribedExercises: Exercise[];

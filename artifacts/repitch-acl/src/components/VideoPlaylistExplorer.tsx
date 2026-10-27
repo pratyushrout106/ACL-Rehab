@@ -63,9 +63,14 @@ export function VideoPlaylistExplorer({
   userRole = 'patient',
 }: VideoPlaylistExplorerProps) {
   const [playbackTime, setPlaybackTime] = useState<number>(0);
+  const [exerciseFilter, setExerciseFilter] = useState<string>('all');
+  const exerciseOptions = Array.from(new Set(clips.map((clip) => clip.exercise)));
+  const visibleClips = exerciseFilter === 'all'
+    ? clips
+    : clips.filter((clip) => clip.exercise === exerciseFilter);
 
-  // Active clip is either the selected one or the newest available
-  const activeClip = clips.find((c) => c.id === selectedClipId) || clips[0] || null;
+  // Active clip is either the selected one or the newest available in the selected workout.
+  const activeClip = visibleClips.find((c) => c.id === selectedClipId) || visibleClips[0] || null;
 
   // Filter valid telemetry angle samples
   const angleSamples = activeClip?.telemetry?.filter((s) => s.angle !== null) ?? [];
@@ -107,13 +112,22 @@ export function VideoPlaylistExplorer({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {exerciseOptions.length > 1 && (
+            <label className="clip-filter">
+              <span className="sr-only">Filter recordings by exercise</span>
+              <select value={exerciseFilter} onChange={(event) => { setExerciseFilter(event.target.value); setPlaybackTime(0); }}>
+                <option value="all">All workouts</option>
+                {exerciseOptions.map((exercise) => <option key={exercise} value={exercise}>{exercise}</option>)}
+              </select>
+            </label>
+          )}
           <span className="tag tag-cyan" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12 }}>
-            <Layers size={13} /> {clips.length} {clips.length === 1 ? 'Recorded Session' : 'Recorded Sessions'}
+            <Layers size={13} /> {visibleClips.length} {visibleClips.length === 1 ? 'Recorded Set' : 'Recorded Sets'}
           </span>
         </div>
       </div>
 
-      {clips.length === 0 ? (
+      {visibleClips.length === 0 ? (
         <div 
           className="empty" 
           style={{ 
@@ -306,7 +320,7 @@ export function VideoPlaylistExplorer({
             </div>
 
             <div className="video-playlist">
-              {clips.map((clip, index) => {
+              {visibleClips.map((clip, index) => {
                 const isSelected = activeClip && clip.id === activeClip.id;
                 return (
                   <div
@@ -334,7 +348,7 @@ export function VideoPlaylistExplorer({
                           flexShrink: 0
                         }}
                       >
-                        #{clips.length - index}
+                        #{visibleClips.length - index}
                       </div>
 
                       <div style={{ minWidth: 0, flex: 1 }}>
