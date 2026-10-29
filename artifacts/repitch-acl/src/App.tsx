@@ -1652,7 +1652,7 @@ function App() {
               onClick={() => setRole('clinician')} 
               data-testid="button-view-clinician"
             >
-              <Stethoscope size={15}/> Clinician
+              <Stethoscope size={15}/> Physiotherapist
             </button>
           </div>
 
@@ -3075,7 +3075,7 @@ function PatientView(props: {
 
         <aside>
           {/* Safety information stays visible without interrupting the daily plan. */}
-          <div className="notice" style={{ marginTop: 16 }}>
+          <div className="notice clinical-safety-notice">
             <ShieldAlert size={16} style={{ color: 'var(--accent-amber)', flexShrink: 0 }}/>
             <span>Stop exercising and contact your physiotherapist if you notice sharp pain, locking, catching, or a sudden increase in swelling.</span>
           </div>
